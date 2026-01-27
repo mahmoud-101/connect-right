@@ -15,6 +15,67 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 type Tone = "casual" | "professional" | "luxury" | "friendly";
 
+type FirecrawlScrapeResult = {
+  html?: string;
+  markdown?: string;
+  metadata?: {
+    title?: string;
+    description?: string;
+    sourceURL?: string;
+    statusCode?: number;
+    language?: string;
+  };
+};
+
+function isHtmlUsable(html: string) {
+  const s = (html ?? "").trim();
+  if (!s) return false;
+  // Very small pages are often bot blocks, redirects, or JS shells.
+  if (s.length < 2500) return false;
+  // Simple block heuristics
+  const lower = s.toLowerCase();
+  if (lower.includes("enable javascript") || lower.includes("access denied") || lower.includes("captcha")) return false;
+  return true;
+}
+
+async function firecrawlScrape(args: {
+  apiKey: string;
+  url: string;
+  formats?: ("html" | "markdown")[];
+}): Promise<FirecrawlScrapeResult> {
+  const { apiKey, url } = args;
+  const formats = args.formats ?? ["html", "markdown"];
+
+  const resp = await fetch("https://api.firecrawl.dev/v1/scrape", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      url,
+      formats,
+      onlyMainContent: true,
+      // A small wait helps on dynamic storefronts.
+      waitFor: 1200,
+    }),
+  });
+
+  const json = await resp.json().catch(() => null);
+  if (!resp.ok) {
+    console.error("Firecrawl scrape error", resp.status, json);
+    throw new Error("Firecrawl scrape failed");
+  }
+
+  // Firecrawl may return fields either at top-level or nested under data.
+  const data = (json?.data ?? json) as any;
+  return {
+    html: typeof data?.html === "string" ? data.html : undefined,
+    markdown: typeof data?.markdown === "string" ? data.markdown : undefined,
+    metadata: typeof data?.metadata === "object" ? data.metadata : undefined,
+  };
+}
+
 function pickMeta(content: string, name: string) {
   const re = new RegExp(
     `<meta[^>]+(?:property|name)=["']${name}["'][^>]+content=["']([^"']+)["'][^>]*>`,
@@ -217,21 +278,62 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 1) Best-effort scrape
-    const pageResp = await fetch(normalizedUrl, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36",
-        Accept: "text/html,application/xhtml+xml",
-      },
-    });
+    // 1) Hybrid scrape: try direct HTML first (fast), fallback to Firecrawl (better for JS-heavy pages)
+    let html = "";
+    try {
+      const pageResp = await fetch(normalizedUrl, {
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36",
+          Accept: "text/html,application/xhtml+xml",
+        },
+      });
+      html = await pageResp.text();
+    } catch (e) {
+      console.error("Direct fetch failed", e);
+      html = "";
+    }
 
-    const html = await pageResp.text();
+    // If HTML looks like a JS shell / bot block / too small, fallback
+    if (!isHtmlUsable(html)) {
+      const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
+      if (FIRECRAWL_API_KEY) {
+        try {
+          const fc = await firecrawlScrape({ apiKey: FIRECRAWL_API_KEY, url: normalizedUrl });
+          if (fc.html && isHtmlUsable(fc.html)) html = fc.html;
+        } catch (e) {
+          console.error("Firecrawl fallback failed", e);
+        }
+      }
+    }
 
-    const productTitle = cleanText(pickTitle(html)) || "";
-    const productPrice = cleanText(pickPrice(html)) || "";
-    const productSpecs = cleanText(pickMeta(html, "description") || pickMeta(html, "og:description")) || "";
-    const imageUrls = pickImages(html, 10);
+    let productTitle = cleanText(pickTitle(html)) || "";
+    let productPrice = cleanText(pickPrice(html)) || "";
+    let productSpecs = cleanText(pickMeta(html, "description") || pickMeta(html, "og:description")) || "";
+    let imageUrls = pickImages(html, 10);
+
+    // Second chance enrichment via Firecrawl if we still have weak signals
+    const weakSignals = !productTitle || imageUrls.length === 0 || (!productSpecs && !productPrice);
+    if (weakSignals) {
+      const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
+      if (FIRECRAWL_API_KEY) {
+        try {
+          const fc = await firecrawlScrape({ apiKey: FIRECRAWL_API_KEY, url: normalizedUrl });
+          const fcHtml = fc.html && isHtmlUsable(fc.html) ? fc.html : "";
+          if (fcHtml) {
+            productTitle = productTitle || cleanText(pickTitle(fcHtml)) || "";
+            productPrice = productPrice || cleanText(pickPrice(fcHtml)) || "";
+            productSpecs =
+              productSpecs ||
+              cleanText(pickMeta(fcHtml, "description") || pickMeta(fcHtml, "og:description")) ||
+              "";
+            if (imageUrls.length === 0) imageUrls = pickImages(fcHtml, 10);
+          }
+        } catch (e) {
+          console.error("Firecrawl enrichment failed", e);
+        }
+      }
+    }
 
     // 2) AI generation via Lovable AI Gateway
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
