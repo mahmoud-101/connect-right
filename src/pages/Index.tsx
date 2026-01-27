@@ -28,9 +28,9 @@ const Index = () => {
           >
             {lang === "ar" ? "English" : "العربية"}
           </Button>
-          <Button asChild>
-            <Link to={primaryHref}>{t("tryFree")}</Link>
-          </Button>
+          <Link to={primaryHref}>
+            <Button>{t("tryFree")}</Button>
+          </Link>
         </div>
       </header>
 
@@ -41,12 +41,12 @@ const Index = () => {
           </h1>
           <p className="max-w-prose text-lg text-muted-foreground">{t("heroSub")}</p>
           <div className="flex flex-wrap items-center gap-3">
-            <Button size="lg" asChild>
-              <Link to={primaryHref}>{t("ctaPrimary")}</Link>
-            </Button>
-            <Button size="lg" variant="secondary" asChild>
-              <Link to="/extract">{t("ctaSeeApp")}</Link>
-            </Button>
+            <Link to={primaryHref}>
+              <Button size="lg">{t("ctaPrimary")}</Button>
+            </Link>
+            <Link to="/extract">
+              <Button size="lg" variant="secondary">{t("ctaSeeApp")}</Button>
+            </Link>
           </div>
         </div>
 
@@ -96,9 +96,9 @@ const Index = () => {
               <li>Arabic content only</li>
               <li>Basic extraction</li>
             </ul>
-            <Button className="mt-6 w-full" asChild>
-              <Link to={primaryHref}>Start free</Link>
-            </Button>
+            <Link to={primaryHref}>
+              <Button className="mt-6 w-full">Start free</Button>
+            </Link>
           </Card>
 
           <Card className="p-6">
@@ -111,9 +111,9 @@ const Index = () => {
               <li>Save up to 50 products</li>
               <li>PDF export</li>
             </ul>
-            <Button className="mt-6 w-full" asChild>
-              <Link to={primaryHref}>Start now</Link>
-            </Button>
+            <Link to={primaryHref}>
+              <Button className="mt-6 w-full">Start now</Button>
+            </Link>
           </Card>
 
           <Card className="p-6">
@@ -126,9 +126,9 @@ const Index = () => {
               <li>Unlimited saved products</li>
               <li>Priority support</li>
             </ul>
-            <Button className="mt-6 w-full" variant="secondary" asChild>
-              <Link to={primaryHref}>Upgrade</Link>
-            </Button>
+            <Link to={primaryHref}>
+              <Button className="mt-6 w-full" variant="secondary">Upgrade</Button>
+            </Link>
           </Card>
         </div>
       </section>

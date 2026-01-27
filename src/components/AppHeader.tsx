@@ -50,9 +50,9 @@ export function AppHeader() {
               {t("logout")}
             </Button>
           ) : (
-            <Button asChild>
-              <Link to="/auth">{t("tryFree")}</Link>
-            </Button>
+            <Link to="/auth">
+              <Button>{t("tryFree")}</Button>
+            </Link>
           )}
         </nav>
       </div>
