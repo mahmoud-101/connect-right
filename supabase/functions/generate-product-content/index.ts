@@ -38,6 +38,32 @@ function isHtmlUsable(html: string) {
   return true;
 }
 
+async function resolveFinalUrl(inputUrl: string): Promise<string> {
+  // Follow redirects to the final destination (affiliate/tracking links).
+  // Use GET (some platforms block HEAD) and keep a short timeout.
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), 12_000);
+  try {
+    const resp = await fetch(inputUrl, {
+      method: "GET",
+      redirect: "follow",
+      signal: controller.signal,
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36",
+        Accept: "text/html,application/xhtml+xml",
+      },
+    });
+    // Deno fetch exposes final URL after redirects.
+    return resp.url || inputUrl;
+  } catch (e) {
+    console.error("resolveFinalUrl failed", e);
+    return inputUrl;
+  } finally {
+    clearTimeout(t);
+  }
+}
+
 async function firecrawlScrape(args: {
   apiKey: string;
   url: string;
@@ -217,6 +243,7 @@ Deno.serve(async (req) => {
     }
 
     const normalizedUrl = url.trim().startsWith("http") ? url.trim() : `https://${url.trim()}`;
+    const finalUrl = await resolveFinalUrl(normalizedUrl);
 
     // Identify user for limits + storage paths
     const userId = claimsData.claims.sub as string;
@@ -278,10 +305,10 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 1) Hybrid scrape: try direct HTML first (fast), fallback to Firecrawl (better for JS-heavy pages)
+    // 1) Hybrid scrape: resolve affiliate redirects -> try direct HTML -> fallback to Firecrawl
     let html = "";
     try {
-      const pageResp = await fetch(normalizedUrl, {
+      const pageResp = await fetch(finalUrl, {
         headers: {
           "User-Agent":
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36",
@@ -299,7 +326,7 @@ Deno.serve(async (req) => {
       const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
       if (FIRECRAWL_API_KEY) {
         try {
-          const fc = await firecrawlScrape({ apiKey: FIRECRAWL_API_KEY, url: normalizedUrl });
+          const fc = await firecrawlScrape({ apiKey: FIRECRAWL_API_KEY, url: finalUrl });
           if (fc.html && isHtmlUsable(fc.html)) html = fc.html;
         } catch (e) {
           console.error("Firecrawl fallback failed", e);
@@ -318,7 +345,7 @@ Deno.serve(async (req) => {
       const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
       if (FIRECRAWL_API_KEY) {
         try {
-          const fc = await firecrawlScrape({ apiKey: FIRECRAWL_API_KEY, url: normalizedUrl });
+          const fc = await firecrawlScrape({ apiKey: FIRECRAWL_API_KEY, url: finalUrl });
           const fcHtml = fc.html && isHtmlUsable(fc.html) ? fc.html : "";
           if (fcHtml) {
             productTitle = productTitle || cleanText(pickTitle(fcHtml)) || "";
