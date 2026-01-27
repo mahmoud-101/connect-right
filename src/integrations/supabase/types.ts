@@ -14,7 +14,133 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      extracted_products: {
+        Row: {
+          created_at: string
+          generated_description: string | null
+          generated_hashtags: string[]
+          generated_selling_points: string[]
+          generated_short_post: string | null
+          id: string
+          is_saved: boolean
+          original_price: string | null
+          product_image_urls: string[]
+          product_title: string | null
+          source_url: string
+          specs: string | null
+          suggested_pricing: Json | null
+          tone: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          generated_description?: string | null
+          generated_hashtags?: string[]
+          generated_selling_points?: string[]
+          generated_short_post?: string | null
+          id?: string
+          is_saved?: boolean
+          original_price?: string | null
+          product_image_urls?: string[]
+          product_title?: string | null
+          source_url: string
+          specs?: string | null
+          suggested_pricing?: Json | null
+          tone?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          generated_description?: string | null
+          generated_hashtags?: string[]
+          generated_selling_points?: string[]
+          generated_short_post?: string | null
+          id?: string
+          is_saved?: boolean
+          original_price?: string | null
+          product_image_urls?: string[]
+          product_title?: string | null
+          source_url?: string
+          specs?: string | null
+          suggested_pricing?: Json | null
+          tone?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "extracted_products_user_fk"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          extraction_limit: number
+          full_name: string | null
+          language: string
+          monthly_extractions: number
+          subscription_plan: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          extraction_limit?: number
+          full_name?: string | null
+          language?: string
+          monthly_extractions?: number
+          subscription_plan?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          extraction_limit?: number
+          full_name?: string | null
+          language?: string
+          monthly_extractions?: number
+          subscription_plan?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      usage_logs: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "usage_logs_user_fk"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
