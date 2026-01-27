@@ -10,6 +10,7 @@ import { AppHeader } from "@/components/AppHeader";
 import { useLanguage } from "@/contexts/language";
 import { copyToClipboard } from "@/lib/copy";
 import { exportAsPdf } from "@/lib/pdf";
+import { sanitizeErrorMessage } from "@/lib/errors";
 import type { Database } from "@/integrations/supabase/types";
 
 type Tone = "casual" | "professional" | "luxury" | "friendly";
@@ -19,6 +20,7 @@ type Generated = {
     price?: string;
     specs?: string;
     imageUrls?: string[];
+    generatedImageUrls?: string[];
     ratingsSummary?: string;
   };
   content?: {
@@ -88,11 +90,13 @@ export default function Extract() {
       });
 
       const imageUrls = parsed.productData?.imageUrls ?? [];
+      const generatedImageUrls = parsed.productData?.generatedImageUrls ?? [];
       const insert: Database["public"]["Tables"]["extracted_products"]["Insert"] = {
         user_id: userId,
         source_url: url,
         product_title: parsed.productData?.title ?? null,
         product_image_urls: imageUrls,
+        generated_image_urls: generatedImageUrls,
         original_price: parsed.productData?.price ?? null,
         specs: parsed.productData?.specs ?? null,
         tone,
@@ -114,8 +118,7 @@ export default function Extract() {
 
       await supabase.from("usage_logs").insert({ user_id: userId, action: "extract" });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed";
-      toast({ title: "Error", description: msg, variant: "destructive" });
+      toast({ title: "Error", description: sanitizeErrorMessage(err), variant: "destructive" });
     } finally {
       setLoading(false);
       setStage("idle");
@@ -148,7 +151,7 @@ export default function Extract() {
 
       toast({ title: "Updated" });
     } catch (err) {
-      toast({ title: "Error", description: err instanceof Error ? err.message : "Failed", variant: "destructive" });
+      toast({ title: "Error", description: sanitizeErrorMessage(err), variant: "destructive" });
     } finally {
       setLoading(false);
       setStage("idle");
@@ -192,7 +195,7 @@ export default function Extract() {
       await supabase.from("usage_logs").insert({ user_id: userId, action: "save" });
       toast({ title: "Saved" });
     } catch (err) {
-      toast({ title: "Error", description: err instanceof Error ? err.message : "Failed", variant: "destructive" });
+      toast({ title: "Error", description: sanitizeErrorMessage(err), variant: "destructive" });
     }
   };
 
@@ -268,6 +271,17 @@ export default function Extract() {
 
         {data && (
           <div className="mt-6 grid gap-4">
+            {data.productData?.generatedImageUrls?.length ? (
+              <Card className="p-6">
+                <h2 className="text-lg font-semibold">صور مقترحة</h2>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  {data.productData.generatedImageUrls.slice(0, 4).map((src, i) => (
+                    <img key={i} src={src} alt={data.productData?.title ?? "product"} className="h-56 w-full rounded-md object-cover" loading="lazy" />
+                  ))}
+                </div>
+              </Card>
+            ) : null}
+
             <div className="flex flex-wrap gap-2">
               <Button onClick={saveToLibrary}>{t("save")}</Button>
               <Button variant="secondary" onClick={copyAll}>
