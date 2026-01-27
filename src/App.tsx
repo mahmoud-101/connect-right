@@ -9,6 +9,7 @@ import Auth from "./pages/Auth";
 import Extract from "./pages/Extract";
 import Library from "./pages/Library";
 import Settings from "./pages/Settings";
+import LibraryItem from "./pages/LibraryItem";
 import { LanguageProvider } from "./contexts/language";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
@@ -38,6 +39,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Library />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/library/:id"
+              element={
+                <ProtectedRoute>
+                  <LibraryItem />
                 </ProtectedRoute>
               }
             />

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { AppHeader } from "@/components/AppHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -102,6 +103,11 @@ export default function Library() {
                   {formatDistanceToNow(new Date(it.created_at), { addSuffix: true })}
                 </div>
                 <div className="mt-3 flex items-center justify-between gap-2">
+                  <Link to={`/library/${it.id}`} className="flex-1">
+                    <Button className="w-full" size="sm">
+                      {t("open") ?? "Open"}
+                    </Button>
+                  </Link>
                   <Button variant="outline" size="sm" onClick={() => del(it.id)}>
                     Delete
                   </Button>
