@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useLanguage } from "@/contexts/language";
 import { useSession } from "@/hooks/useSession";
+import { Sparkles, Link2, Wand2, Copy } from "lucide-react";
 
 const Index = () => {
   const { lang, t, setLang } = useLanguage();
@@ -34,38 +35,87 @@ const Index = () => {
         </div>
       </header>
 
-      <section className="mx-auto grid w-full max-w-6xl gap-6 px-4 pb-14 pt-6 md:grid-cols-2 md:items-center">
-        <div className="space-y-4">
-          <h1 className="text-balance text-4xl font-semibold leading-tight md:text-5xl">
-            {t("heroTitle")}
-          </h1>
-          <p className="max-w-prose text-lg text-muted-foreground">{t("heroSub")}</p>
-          <div className="flex flex-wrap items-center gap-3">
-            <Link to={primaryHref}>
-              <Button size="lg">{t("ctaPrimary")}</Button>
-            </Link>
-            <Link to="/extract">
-              <Button size="lg" variant="secondary">{t("ctaSeeApp")}</Button>
-            </Link>
-          </div>
+      <section className="relative overflow-hidden">
+        <div
+          className="pointer-events-none absolute inset-0"
+          aria-hidden="true"
+        >
+          <div className="absolute -top-24 start-1/2 h-72 w-[40rem] -translate-x-1/2 rounded-full bg-primary/10 blur-3xl" />
+          <div className="absolute -bottom-24 start-1/3 h-72 w-[36rem] -translate-x-1/2 rounded-full bg-accent/20 blur-3xl" />
         </div>
 
-        <Card className="p-6">
-          <div className="grid gap-4">
-            <div className="grid gap-1">
-              <div className="text-sm font-medium">1) {t("stepPaste")}</div>
-              <div className="text-sm text-muted-foreground">{t("stepPasteDesc")}</div>
+        <div className="mx-auto grid w-full max-w-6xl gap-8 px-4 pb-14 pt-8 md:grid-cols-2 md:items-center">
+          <div className="space-y-5">
+            <div className="inline-flex items-center gap-2 rounded-full border bg-background/70 px-3 py-1 text-xs text-muted-foreground backdrop-blur">
+              <Sparkles className="h-4 w-4" />
+              <span>{lang === "ar" ? "محتوى عربي جاهز للنشر" : "Arabic content ready to post"}</span>
             </div>
-            <div className="grid gap-1">
-              <div className="text-sm font-medium">2) {t("stepExtract")}</div>
-              <div className="text-sm text-muted-foreground">{t("stepExtractDesc")}</div>
+
+            <h1 className="text-balance text-4xl font-semibold leading-tight md:text-6xl">
+              {t("heroTitle")}
+            </h1>
+            <p className="max-w-prose text-lg text-muted-foreground">{t("heroSub")}</p>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <Link to={primaryHref}>
+                <Button size="lg">{t("ctaPrimary")}</Button>
+              </Link>
+              <Link to="/extract">
+                <Button size="lg" variant="secondary">
+                  {t("ctaSeeApp")}
+                </Button>
+              </Link>
             </div>
-            <div className="grid gap-1">
-              <div className="text-sm font-medium">3) {t("stepPost")}</div>
-              <div className="text-sm text-muted-foreground">{t("stepPostDesc")}</div>
+
+            <div className="flex flex-wrap items-center gap-6 text-xs text-muted-foreground">
+              <span>{lang === "ar" ? "يدعم AliExpress / Amazon / 1688" : "Works with AliExpress / Amazon / 1688"}</span>
+              <span>{lang === "ar" ? "تعديل قبل النسخ أو التصدير" : "Edit before copy or export"}</span>
             </div>
           </div>
-        </Card>
+
+          <Card className="p-6">
+            <div className="grid gap-4">
+              <div className="grid gap-3">
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 rounded-md border bg-background p-2 text-muted-foreground">
+                    <Link2 className="h-4 w-4" />
+                  </div>
+                  <div className="grid gap-1">
+                    <div className="text-sm font-medium">1) {t("stepPaste")}</div>
+                    <div className="text-sm text-muted-foreground">{t("stepPasteDesc")}</div>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 rounded-md border bg-background p-2 text-muted-foreground">
+                    <Wand2 className="h-4 w-4" />
+                  </div>
+                  <div className="grid gap-1">
+                    <div className="text-sm font-medium">2) {t("stepExtract")}</div>
+                    <div className="text-sm text-muted-foreground">{t("stepExtractDesc")}</div>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 rounded-md border bg-background p-2 text-muted-foreground">
+                    <Copy className="h-4 w-4" />
+                  </div>
+                  <div className="grid gap-1">
+                    <div className="text-sm font-medium">3) {t("stepPost")}</div>
+                    <div className="text-sm text-muted-foreground">{t("stepPostDesc")}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-2 rounded-lg border bg-muted/30 p-4">
+                <div className="text-sm font-medium">
+                  {lang === "ar" ? "جاهز لفيسبوك/إنستجرام" : "Ready for Facebook/Instagram"}
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {lang === "ar" ? "بوست + وصف + هاشتاجات + تسعير مقترح" : "Post + description + hashtags + pricing suggestions"}
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
       </section>
 
       <section className="mx-auto w-full max-w-6xl px-4 pb-16">
@@ -86,55 +136,90 @@ const Index = () => {
       </section>
 
       <section className="mx-auto w-full max-w-6xl px-4 pb-16">
-        <h2 className="mb-4 text-2xl font-semibold">Pricing</h2>
+        <div className="mb-5">
+          <h2 className="text-2xl font-semibold">{t("examplesTitle")}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{t("examplesSub")}</p>
+        </div>
+
         <div className="grid gap-4 md:grid-cols-3">
           <Card className="p-6">
-            <div className="text-sm font-semibold">Free</div>
+            <div className="text-sm font-semibold">{lang === "ar" ? "بوست قصير" : "Short post"}</div>
+            <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">
+              {lang === "ar"
+                ? "✨ عرض خاص النهارده!\nمنتج عملي وخفيف… مناسب للبيت والسفر.\nاطلبه دلوقتي وسيبنا الباقي 🔥"
+                : "✨ Limited offer today!\nPractical, lightweight, perfect for home & travel.\nOrder now and let us handle the rest 🔥"}
+            </p>
+          </Card>
+          <Card className="p-6">
+            <div className="text-sm font-semibold">{lang === "ar" ? "نقاط بيع" : "Selling points"}</div>
+            <ul className="mt-3 list-disc space-y-1 ps-6 text-sm text-muted-foreground">
+              <li>{lang === "ar" ? "سهل الاستخدام" : "Easy to use"}</li>
+              <li>{lang === "ar" ? "خامة متينة" : "Durable quality"}</li>
+              <li>{lang === "ar" ? "مناسب كهدية" : "Great as a gift"}</li>
+              <li>{lang === "ar" ? "تسليم سريع" : "Fast delivery"}</li>
+            </ul>
+          </Card>
+          <Card className="p-6">
+            <div className="text-sm font-semibold">{lang === "ar" ? "هاشتاجات" : "Hashtags"}</div>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {lang === "ar"
+                ? "#تسوق #عروض #منتجات #مصر #السعودية #الامارات #اونلاين #جملة #خصومات #بيع"
+                : "#shopping #deals #products #egypt #ksa #uae #online #wholesale #discount #sell"}
+            </p>
+          </Card>
+        </div>
+      </section>
+
+      <section className="mx-auto w-full max-w-6xl px-4 pb-16">
+        <h2 className="mb-4 text-2xl font-semibold">{t("pricingTitle")}</h2>
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card className="p-6">
+            <div className="text-sm font-semibold">{lang === "ar" ? "مجاني" : "Free"}</div>
             <div className="mt-2 text-3xl font-semibold">0</div>
             <ul className="mt-4 list-disc space-y-1 ps-6 text-sm text-muted-foreground">
-              <li>10 products / month</li>
-              <li>Arabic content only</li>
-              <li>Basic extraction</li>
+              <li>{lang === "ar" ? "10 منتجات / شهر" : "10 products / month"}</li>
+              <li>{lang === "ar" ? "محتوى عربي" : "Arabic content"}</li>
+              <li>{lang === "ar" ? "استخراج أساسي" : "Basic extraction"}</li>
             </ul>
             <Link to={primaryHref}>
-              <Button className="mt-6 w-full">Start free</Button>
+              <Button className="mt-6 w-full">{lang === "ar" ? "ابدأ مجاناً" : "Start free"}</Button>
             </Link>
           </Card>
 
           <Card className="p-6">
-            <div className="text-sm font-semibold">Basic</div>
+            <div className="text-sm font-semibold">{lang === "ar" ? "أساسي" : "Basic"}</div>
             <div className="mt-2 text-3xl font-semibold">199 EGP</div>
             <div className="text-sm text-muted-foreground">$15 (Gulf)</div>
             <ul className="mt-4 list-disc space-y-1 ps-6 text-sm text-muted-foreground">
-              <li>100 products / month</li>
-              <li>3 writing styles</li>
-              <li>Save up to 50 products</li>
-              <li>PDF export</li>
+              <li>{lang === "ar" ? "50 منتج / شهر" : "50 products / month"}</li>
+              <li>{lang === "ar" ? "3 أساليب كتابة" : "3 writing styles"}</li>
+              <li>{lang === "ar" ? "حفظ حتى 50 منتج" : "Save up to 50 products"}</li>
+              <li>{lang === "ar" ? "تصدير PDF" : "PDF export"}</li>
             </ul>
             <Link to={primaryHref}>
-              <Button className="mt-6 w-full">Start now</Button>
+              <Button className="mt-6 w-full">{lang === "ar" ? "ابدأ الآن" : "Start now"}</Button>
             </Link>
           </Card>
 
           <Card className="p-6">
-            <div className="text-sm font-semibold">Pro</div>
+            <div className="text-sm font-semibold">{lang === "ar" ? "برو" : "Pro"}</div>
             <div className="mt-2 text-3xl font-semibold">399 EGP</div>
             <div className="text-sm text-muted-foreground">$30 (Gulf)</div>
             <ul className="mt-4 list-disc space-y-1 ps-6 text-sm text-muted-foreground">
-              <li>Unlimited products</li>
-              <li>All Basic features</li>
-              <li>Unlimited saved products</li>
-              <li>Priority support</li>
+              <li>{lang === "ar" ? "منتجات غير محدودة" : "Unlimited products"}</li>
+              <li>{lang === "ar" ? "كل مزايا الباقة الأساسية" : "All Basic features"}</li>
+              <li>{lang === "ar" ? "حفظ غير محدود" : "Unlimited saved products"}</li>
+              <li>{lang === "ar" ? "دعم أولوية" : "Priority support"}</li>
             </ul>
             <Link to={primaryHref}>
-              <Button className="mt-6 w-full" variant="secondary">Upgrade</Button>
+              <Button className="mt-6 w-full" variant="secondary">{lang === "ar" ? "ترقية" : "Upgrade"}</Button>
             </Link>
           </Card>
         </div>
       </section>
 
       <section className="mx-auto w-full max-w-6xl px-4 pb-20">
-        <h2 className="mb-4 text-2xl font-semibold">FAQ</h2>
+        <h2 className="mb-4 text-2xl font-semibold">{t("faqTitle")}</h2>
         <div className="grid gap-4 md:grid-cols-2">
           <Card className="p-6">
             <div className="text-sm font-semibold">هل الأداة تدعم العربية فقط؟</div>

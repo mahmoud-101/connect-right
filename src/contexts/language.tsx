@@ -25,6 +25,19 @@ const dict: Dictionary = {
   stat2: { ar: "متوسط وقت التوليد", en: "Avg generation time" },
   stat3: { ar: "معدل رضا المستخدمين", en: "User satisfaction" },
 
+  examplesTitle: { ar: "أمثلة للمخرجات", en: "Example outputs" },
+  examplesSub: {
+    ar: "شوف شكل البوست والهاشتاجات قبل ما تبدأ — وتقدر تعدّلهم بسهولة.",
+    en: "Preview what you’ll get — then edit everything before posting.",
+  },
+  pricingTitle: { ar: "الأسعار", en: "Pricing" },
+  faqTitle: { ar: "الأسئلة الشائعة", en: "FAQ" },
+  setAsCover: { ar: "اجعلها صورة الغلاف", en: "Set as cover" },
+  tapToSetCover: { ar: "اضغط على أي صورة لتكون الغلاف في المكتبة.", en: "Tap any image to set it as the cover in your Library." },
+  cover: { ar: "غلاف", en: "Cover" },
+  suggestedImages: { ar: "صور مقترحة", en: "Suggested images" },
+  generateImagesOnly: { ar: "توليد صور فقط", en: "Generate images only" },
+
   email: { ar: "البريد الإلكتروني", en: "Email" },
   password: { ar: "كلمة المرور", en: "Password" },
   fullName: { ar: "الاسم", en: "Full name" },

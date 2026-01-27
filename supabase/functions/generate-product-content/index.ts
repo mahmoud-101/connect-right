@@ -145,7 +145,7 @@ Deno.serve(async (req) => {
     const { url, tone, section } = (await req.json()) as {
       url: string;
       tone: Tone;
-      section?: "all" | "description" | "short_post" | "selling_points" | "hashtags" | "pricing";
+      section?: "all" | "images" | "description" | "short_post" | "selling_points" | "hashtags" | "pricing";
     };
 
     if (!url || typeof url !== "string") {
@@ -156,6 +156,66 @@ Deno.serve(async (req) => {
     }
 
     const normalizedUrl = url.trim().startsWith("http") ? url.trim() : `https://${url.trim()}`;
+
+    // Identify user for limits + storage paths
+    const userId = claimsData.claims.sub as string;
+
+    // Server-side plan limit enforcement (monthly extractions)
+    // Count only for full extraction (section=all) or images-only.
+    const shouldCountUsage = !section || section === "all" || section === "images";
+    if (shouldCountUsage) {
+      const { data: profile, error: profileError } = await client
+        .from("profiles")
+        .select("subscription_plan")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (profileError) {
+        console.error("Failed to fetch profile", profileError);
+        return new Response(JSON.stringify({ error: "Failed to load profile" }), {
+          status: 500,
+          headers: { ...cors, "Content-Type": "application/json" },
+        });
+      }
+
+      const plan = (profile?.subscription_plan ?? "free") as string;
+      const limit = plan === "pro" ? Infinity : plan === "basic" ? 50 : 10;
+
+      const now = new Date();
+      const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0)).toISOString();
+
+      const { count, error: countError } = await client
+        .from("usage_logs")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .eq("action", "extract")
+        .gte("created_at", monthStart);
+
+      if (countError) {
+        console.error("Failed to count usage", countError);
+        return new Response(JSON.stringify({ error: "Failed to check usage" }), {
+          status: 500,
+          headers: { ...cors, "Content-Type": "application/json" },
+        });
+      }
+
+      if ((count ?? 0) >= limit) {
+        return new Response(
+          JSON.stringify({
+            error:
+              plan === "basic"
+                ? "You reached your monthly limit (Basic: 50)."
+                : "You reached your monthly limit (Free: 10).",
+            code: "LIMIT_REACHED",
+            plan,
+            limit,
+          }),
+          {
+            status: 429,
+            headers: { ...cors, "Content-Type": "application/json" },
+          },
+        );
+      }
+    }
 
     // 1) Best-effort scrape
     const pageResp = await fetch(normalizedUrl, {
@@ -180,6 +240,61 @@ Deno.serve(async (req) => {
         status: 500,
         headers: { ...cors, "Content-Type": "application/json" },
       });
+    }
+
+    // Images-only mode (skip text generation)
+    if (section === "images") {
+      let generatedImageUrls: string[] = [];
+      try {
+        const dataUrls = await generateProductImages({
+          apiKey: LOVABLE_API_KEY,
+          title: productTitle,
+          specs: productSpecs,
+          tone,
+          count: 2,
+        });
+
+        for (const dataUrl of dataUrls) {
+          const { bytes, contentType, ext } = parseDataUrl(dataUrl);
+          const path = `${userId}/${crypto.randomUUID()}.${ext}`;
+          const uploadRes = await client.storage.from("product-images").upload(path, bytes, {
+            contentType,
+            upsert: false,
+          });
+          if (uploadRes.error) {
+            console.error("Storage upload error", uploadRes.error);
+            continue;
+          }
+          const pub = client.storage.from("product-images").getPublicUrl(path);
+          if (pub.data?.publicUrl) generatedImageUrls.push(pub.data.publicUrl);
+        }
+      } catch (e) {
+        console.error("Images-only generation failed", e);
+        generatedImageUrls = [];
+      }
+
+      // Track usage server-side
+      if (!generatedImageUrls.length) {
+        // Still count a usage because request consumed resources.
+        await client.from("usage_logs").insert({ user_id: userId, action: "extract" });
+      } else {
+        await client.from("usage_logs").insert({ user_id: userId, action: "extract" });
+      }
+
+      return new Response(
+        JSON.stringify({
+          productData: {
+            title: productTitle,
+            price: productPrice,
+            specs: productSpecs,
+            imageUrls,
+            generatedImageUrls,
+            ratingsSummary: "",
+          },
+          content: {},
+        }),
+        { headers: { ...cors, "Content-Type": "application/json" } },
+      );
     }
 
     const toolSchema = {
@@ -296,8 +411,6 @@ Deno.serve(async (req) => {
           count: 2,
         });
 
-        // Upload as the authenticated user into their folder: user_id/... (matches storage policy)
-        const userId = claimsData.claims.sub as string;
         for (const dataUrl of dataUrls) {
           const { bytes, contentType, ext } = parseDataUrl(dataUrl);
           const path = `${userId}/${crypto.randomUUID()}.${ext}`;
@@ -316,6 +429,12 @@ Deno.serve(async (req) => {
     } catch (e) {
       console.error("Image generation failed", e);
       generatedImageUrls = [];
+    }
+
+    // Track usage server-side for full extraction only
+    if (!section || section === "all") {
+      const { error: usageErr } = await client.from("usage_logs").insert({ user_id: userId, action: "extract" });
+      if (usageErr) console.error("Failed to insert usage_log", usageErr);
     }
 
     return new Response(

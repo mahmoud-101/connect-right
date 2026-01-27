@@ -42,6 +42,7 @@ export default function Extract() {
   const [stage, setStage] = useState<"idle" | "extract" | "generate">("idle");
   const [data, setData] = useState<Generated | null>(null);
   const [rowId, setRowId] = useState<string | null>(null);
+  const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<{ description: string; shortPost: string; hashtags: string; sellingPoints: string }>(
     { description: "", shortPost: "", hashtags: "", sellingPoints: "" },
@@ -66,6 +67,7 @@ export default function Extract() {
     setStage("extract");
     setData(null);
     setRowId(null);
+    setCoverUrl(null);
 
     try {
       const { data: auth } = await supabase.auth.getUser();
@@ -115,13 +117,70 @@ export default function Extract() {
         .maybeSingle();
       if (insertError) throw insertError;
       if (row?.id) setRowId(row.id);
-
-      await supabase.from("usage_logs").insert({ user_id: userId, action: "extract" });
     } catch (err) {
       toast({ title: "Error", description: sanitizeErrorMessage(err), variant: "destructive" });
     } finally {
       setLoading(false);
       setStage("idle");
+    }
+  };
+
+  const generateImagesOnly = async () => {
+    if (!url.trim()) return;
+    if (!rowId) {
+      toast({ title: "Error", description: "Generate once first, then you can add images.", variant: "destructive" });
+      return;
+    }
+
+    setLoading(true);
+    setStage("generate");
+    try {
+      const { data: fnData, error: fnError } = await supabase.functions.invoke("generate-product-content", {
+        body: { url, tone, section: "images" },
+      });
+      if (fnError) throw fnError;
+      const parsed = fnData as Generated & { error?: string };
+      if ((parsed as any)?.error) throw new Error((parsed as any).error);
+
+      const newImages = parsed.productData?.generatedImageUrls ?? [];
+      setData((prev) => {
+        if (!prev) return prev;
+        const next = structuredClone(prev) as Generated;
+        next.productData = next.productData ?? {};
+        const existing = next.productData.generatedImageUrls ?? [];
+        next.productData.generatedImageUrls = Array.from(new Set([...existing, ...newImages]));
+        return next;
+      });
+
+      if (newImages.length) {
+        const merged = Array.from(
+          new Set([...(data?.productData?.generatedImageUrls ?? []), ...newImages]),
+        );
+        const { error } = await supabase
+          .from("extracted_products")
+          .update({ generated_image_urls: merged })
+          .eq("id", rowId);
+        if (error) throw error;
+      }
+
+      toast({ title: "Images generated" });
+    } catch (err) {
+      toast({ title: "Error", description: sanitizeErrorMessage(err), variant: "destructive" });
+    } finally {
+      setLoading(false);
+      setStage("idle");
+    }
+  };
+
+  const setAsCover = async (src: string) => {
+    setCoverUrl(src);
+    if (!rowId) return;
+    try {
+      const { error } = await supabase.from("extracted_products").update({ cover_image_url: src }).eq("id", rowId);
+      if (error) throw error;
+      toast({ title: "Cover updated" });
+    } catch (err) {
+      toast({ title: "Error", description: sanitizeErrorMessage(err), variant: "destructive" });
     }
   };
 
@@ -228,6 +287,7 @@ export default function Extract() {
     setTone("casual");
     setData(null);
     setRowId(null);
+    setCoverUrl(null);
     setEditing(false);
   };
 
@@ -273,12 +333,37 @@ export default function Extract() {
           <div className="mt-6 grid gap-4">
             {data.productData?.generatedImageUrls?.length ? (
               <Card className="p-6">
-                <h2 className="text-lg font-semibold">صور مقترحة</h2>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h2 className="text-lg font-semibold">{t("suggestedImages")}</h2>
+                  <Button variant="outline" size="sm" disabled={loading} onClick={generateImagesOnly}>
+                    {t("generateImagesOnly")}
+                  </Button>
+                </div>
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
                   {data.productData.generatedImageUrls.slice(0, 4).map((src, i) => (
-                    <img key={i} src={src} alt={data.productData?.title ?? "product"} className="h-56 w-full rounded-md object-cover" loading="lazy" />
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setAsCover(src)}
+                      className="relative overflow-hidden rounded-md text-left"
+                      aria-label={t("setAsCover")}
+                    >
+                      <img
+                        src={src}
+                        alt={data.productData?.title ?? "product"}
+                        className="h-56 w-full object-cover"
+                        loading="lazy"
+                      />
+                      <div className="pointer-events-none absolute inset-0 ring-2 ring-transparent data-[active=true]:ring-ring" data-active={coverUrl === src} />
+                      {coverUrl === src ? (
+                        <div className="absolute start-2 top-2 rounded-md bg-background/80 px-2 py-1 text-xs font-medium text-foreground backdrop-blur">
+                          {t("cover")}
+                        </div>
+                      ) : null}
+                    </button>
                   ))}
                 </div>
+                <p className="mt-3 text-xs text-muted-foreground">{t("tapToSetCover")}</p>
               </Card>
             ) : null}
 
@@ -289,6 +374,9 @@ export default function Extract() {
               </Button>
               <Button variant="secondary" onClick={exportPdf}>
                 {t("exportPdf")}
+              </Button>
+              <Button variant="secondary" onClick={generateImagesOnly} disabled={loading || !rowId}>
+                {t("generateImagesOnly")}
               </Button>
               <Button variant="secondary" onClick={() => setEditing((v) => !v)}>
                 {editing ? "Done" : "Edit"}
