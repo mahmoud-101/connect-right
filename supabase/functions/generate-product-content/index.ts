@@ -142,6 +142,57 @@ function cleanText(s?: string) {
   return s.replace(/\s+/g, " ").trim();
 }
 
+function getHost(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "").toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
+function looksLikeAuthOrLanding(html: string, url: string): boolean {
+  const host = getHost(url);
+  const lower = (html || "").toLowerCase();
+
+  // Generic auth wall / login page signals
+  const authSignals = [
+    "login",
+    "sign in",
+    "signin",
+    "sign-in",
+    "log in",
+    "register",
+    "create account",
+    "forgot password",
+    "تسجيل الدخول",
+    "تسجيل حساب",
+    "انشاء حساب",
+    "إنشاء حساب",
+    "كلمة المرور",
+  ];
+  if (authSignals.some((s) => lower.includes(s.toLowerCase()))) return true;
+
+  // Affiliate platforms often have internal product pages behind auth.
+  // If we land on their public marketing page (og:title == brand, no price, tracking image), treat as not a product.
+  const brandHosts = new Set(["taager.com", "engezny.com", "vendor.com", "safqa.com"]);
+  if (brandHosts.has(host)) {
+    const title = (pickTitle(html) || "").trim();
+    const ogSiteName = (pickMeta(html, "og:site_name") || "").trim();
+    const price = pickPrice(html);
+    const imgs = pickImages(html, 5);
+
+    const brandishTitle = /^(taager|engezny|vendor|safqa)$/i.test(title) ||
+      /^(taager|engezny|vendor|safqa)$/i.test(ogSiteName);
+    const onlyTrackingImages = imgs.length > 0 && imgs.every((u) => /mc\.yandex\.ru|google-analytics|doubleclick|pixel/i.test(u));
+
+    // When URL looks like a product path but page is brand/landing, it's almost certainly gated.
+    const looksLikeProductPath = /\/products\//i.test(url) || /\/product\//i.test(url);
+    if (looksLikeProductPath && (brandishTitle || (!price && onlyTrackingImages))) return true;
+  }
+
+  return false;
+}
+
 function parseDataUrl(dataUrl: string): { bytes: Uint8Array; contentType: string; ext: string } {
   // Example: data:image/png;base64,AAA...
   const m = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
@@ -338,6 +389,20 @@ Deno.serve(async (req) => {
     let productPrice = cleanText(pickPrice(html)) || "";
     let productSpecs = cleanText(pickMeta(html, "description") || pickMeta(html, "og:description")) || "";
     let imageUrls = pickImages(html, 10);
+
+    // If we're seeing a login wall or a public landing page instead of an actual product,
+    // stop early to avoid generating misleading content.
+    if (looksLikeAuthOrLanding(html, finalUrl)) {
+      return new Response(
+        JSON.stringify({
+          error:
+            "الرابط ده غالباً من داخل منصة أفلييت وبيحتاج تسجيل دخول، فالسيرفر بيشوف صفحة عامة/تسجيل دخول مش صفحة المنتج.\n\nالحل: ابعت رابط المنتج النهائي من المتجر الأصلي (Amazon/Noon/…)، أو رابط (Share) عام من المنصة يكون متاح بدون تسجيل دخول.",
+          code: "AUTH_REQUIRED_OR_NOT_PRODUCT",
+          finalUrl,
+        }),
+        { status: 422, headers: { ...cors, "Content-Type": "application/json" } },
+      );
+    }
 
     // Second chance enrichment via Firecrawl if we still have weak signals
     const weakSignals = !productTitle || imageUrls.length === 0 || (!productSpecs && !productPrice);
