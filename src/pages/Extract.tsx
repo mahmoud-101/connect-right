@@ -44,6 +44,12 @@ export default function Extract() {
   const [rowId, setRowId] = useState<string | null>(null);
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
+
+  const [manualMode, setManualMode] = useState(false);
+  const [manualTitle, setManualTitle] = useState("");
+  const [manualPrice, setManualPrice] = useState("");
+  const [manualSpecs, setManualSpecs] = useState("");
+  const [manualImages, setManualImages] = useState("");
   const [draft, setDraft] = useState<{ description: string; shortPost: string; hashtags: string; sellingPoints: string }>(
     { description: "", shortPost: "", hashtags: "", sellingPoints: "" },
   );
@@ -68,6 +74,7 @@ export default function Extract() {
     setData(null);
     setRowId(null);
     setCoverUrl(null);
+    setManualMode(false);
 
     try {
       const { data: auth } = await supabase.auth.getUser();
@@ -119,6 +126,91 @@ export default function Extract() {
       if (row?.id) setRowId(row.id);
     } catch (err) {
       // Supabase functions errors may contain a JSON body with a user-friendly message.
+      const body = (err as any)?.context?.body;
+      const bodyMsg = typeof body === "object" ? (body as any)?.error : undefined;
+      const bodyCode = typeof body === "object" ? (body as any)?.code : undefined;
+
+      if (bodyCode === "AUTH_REQUIRED_OR_NOT_PRODUCT") {
+        // Offer a no-scrape fallback that uses the internal webhook endpoint.
+        setManualMode(true);
+      }
+      toast({
+        title: "Error",
+        description: typeof bodyMsg === "string" && bodyMsg.trim() ? bodyMsg : sanitizeErrorMessage(err),
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+      setStage("idle");
+    }
+  };
+
+  const generateFromManual = async () => {
+    const title = manualTitle.trim();
+    const specs = manualSpecs.trim();
+    const imageUrls = manualImages
+      .split("\n")
+      .map((x) => x.trim())
+      .filter(Boolean);
+
+    if (!title && !specs && imageUrls.length === 0) {
+      toast({
+        title: "Error",
+        description: "اكتب عنوان أو مواصفات أو على الأقل رابط صورة واحدة.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+    setStage("generate");
+    try {
+      const { data: fnData, error: fnError } = await supabase.functions.invoke("affiliate-webhook", {
+        body: {
+          url: url.trim() || undefined,
+          tone,
+          product: {
+            title: title || undefined,
+            price: manualPrice.trim() || undefined,
+            specs: specs || undefined,
+            image_urls: imageUrls,
+          },
+        },
+      });
+      if (fnError) throw fnError;
+
+      const id = (fnData as any)?.id as string | null;
+      const content = (fnData as any)?.content as any;
+
+      const next: Generated = {
+        productData: {
+          title: title || undefined,
+          price: manualPrice.trim() || undefined,
+          specs: specs || undefined,
+          imageUrls,
+          generatedImageUrls: [],
+        },
+        content: {
+          description: content?.description ?? "",
+          shortPost: content?.shortPost ?? "",
+          sellingPoints: content?.sellingPoints ?? [],
+          hashtags: content?.hashtags ?? [],
+        },
+      };
+
+      setData(next);
+      setEditing(false);
+      setDraft({
+        description: next.content?.description ?? "",
+        shortPost: next.content?.shortPost ?? "",
+        hashtags: (next.content?.hashtags ?? []).join(" "),
+        sellingPoints: (next.content?.sellingPoints ?? []).join("\n"),
+      });
+
+      if (id) setRowId(id);
+      setCoverUrl(imageUrls[0] ?? null);
+      toast({ title: "تم التوليد من البيانات اليدوية" });
+    } catch (err) {
       const bodyMsg = (err as any)?.context?.body?.error;
       toast({
         title: "Error",
@@ -305,6 +397,11 @@ export default function Extract() {
     setRowId(null);
     setCoverUrl(null);
     setEditing(false);
+    setManualMode(false);
+    setManualTitle("");
+    setManualPrice("");
+    setManualSpecs("");
+    setManualImages("");
   };
 
   return (
@@ -344,6 +441,48 @@ export default function Extract() {
             </Button>
           </div>
         </Card>
+
+        {manualMode && !data ? (
+          <Card className="mt-6 p-6">
+            <div className="space-y-2">
+              <h2 className="text-lg font-semibold">بديل سريع لروابط الأفلييت (بدون Scraping)</h2>
+              <p className="text-sm text-muted-foreground">
+                لو المنصة بتحتاج تسجيل دخول، اكتب بيانات المنتج هنا (من صفحة المنتج داخل المنصة) وسنولّد المحتوى مباشرة.
+              </p>
+            </div>
+
+            <div className="mt-4 grid gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="manualTitle">عنوان المنتج</Label>
+                <Input id="manualTitle" value={manualTitle} onChange={(e) => setManualTitle(e.target.value)} />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="manualPrice">السعر (اختياري)</Label>
+                <Input id="manualPrice" value={manualPrice} onChange={(e) => setManualPrice(e.target.value)} />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="manualSpecs">مواصفات/وصف مختصر</Label>
+                <Textarea id="manualSpecs" value={manualSpecs} onChange={(e) => setManualSpecs(e.target.value)} />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="manualImages">روابط الصور (كل رابط في سطر)</Label>
+                <Textarea
+                  id="manualImages"
+                  value={manualImages}
+                  onChange={(e) => setManualImages(e.target.value)}
+                  placeholder="https://...\nhttps://..."
+                />
+              </div>
+
+              <Button onClick={generateFromManual} disabled={loading} size="lg">
+                {loading ? t("generating") : "توليد المحتوى من البيانات"}
+              </Button>
+            </div>
+          </Card>
+        ) : null}
 
         {data && (
           <div className="mt-6 grid gap-4">
