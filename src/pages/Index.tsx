@@ -188,8 +188,8 @@ const Index = () => {
 
           <Card className="p-6">
             <div className="text-sm font-semibold">{lang === "ar" ? "أساسي" : "Basic"}</div>
-            <div className="mt-2 text-3xl font-semibold">199 EGP</div>
-            <div className="text-sm text-muted-foreground">$15 (Gulf)</div>
+            <div className="mt-2 text-3xl font-semibold">{lang === "ar" ? "—" : "—"}</div>
+            <div className="text-sm text-muted-foreground">{lang === "ar" ? "شهري/سنوي (قريباً)" : "Monthly/Yearly (soon)"}</div>
             <ul className="mt-4 list-disc space-y-1 ps-6 text-sm text-muted-foreground">
               <li>{lang === "ar" ? "50 منتج / شهر" : "50 products / month"}</li>
               <li>{lang === "ar" ? "3 أساليب كتابة" : "3 writing styles"}</li>
@@ -197,14 +197,16 @@ const Index = () => {
               <li>{lang === "ar" ? "تصدير PDF" : "PDF export"}</li>
             </ul>
             <Link to={primaryHref}>
-              <Button className="mt-6 w-full">{lang === "ar" ? "ابدأ الآن" : "Start now"}</Button>
+              <Button className="mt-6 w-full" variant="secondary">
+                {lang === "ar" ? "انضم لقائمة الانتظار" : "Join waitlist"}
+              </Button>
             </Link>
           </Card>
 
           <Card className="p-6">
             <div className="text-sm font-semibold">{lang === "ar" ? "برو" : "Pro"}</div>
-            <div className="mt-2 text-3xl font-semibold">399 EGP</div>
-            <div className="text-sm text-muted-foreground">$30 (Gulf)</div>
+            <div className="mt-2 text-3xl font-semibold">{lang === "ar" ? "—" : "—"}</div>
+            <div className="text-sm text-muted-foreground">{lang === "ar" ? "شهري/سنوي (قريباً)" : "Monthly/Yearly (soon)"}</div>
             <ul className="mt-4 list-disc space-y-1 ps-6 text-sm text-muted-foreground">
               <li>{lang === "ar" ? "منتجات غير محدودة" : "Unlimited products"}</li>
               <li>{lang === "ar" ? "كل مزايا الباقة الأساسية" : "All Basic features"}</li>
@@ -212,7 +214,9 @@ const Index = () => {
               <li>{lang === "ar" ? "دعم أولوية" : "Priority support"}</li>
             </ul>
             <Link to={primaryHref}>
-              <Button className="mt-6 w-full" variant="secondary">{lang === "ar" ? "ترقية" : "Upgrade"}</Button>
+              <Button className="mt-6 w-full" variant="secondary">
+                {lang === "ar" ? "انضم لقائمة الانتظار" : "Join waitlist"}
+              </Button>
             </Link>
           </Card>
         </div>
