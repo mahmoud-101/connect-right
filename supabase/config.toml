@@ -2,3 +2,6 @@ project_id = "osctbdwfzvnetjnznwwa"
 
 [functions.generate-product-content]
 verify_jwt = false
+
+[functions.affiliate-webhook]
+verify_jwt = false
