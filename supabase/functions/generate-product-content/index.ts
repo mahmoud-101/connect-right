@@ -3,6 +3,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+import { createClient } from "npm:@supabase/supabase-js@2";
+
 type Tone = "casual" | "professional" | "luxury" | "friendly";
 
 function pickMeta(content: string, name: string) {
@@ -59,7 +61,6 @@ Deno.serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnon = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
 
     const client = createClient(supabaseUrl, supabaseAnon, {
       global: { headers: { Authorization: authHeader } },
@@ -68,6 +69,7 @@ Deno.serve(async (req) => {
     const token = authHeader.replace("Bearer ", "");
     const { data: claimsData, error: claimsError } = await client.auth.getClaims(token);
     if (claimsError || !claimsData?.claims?.sub) {
+      console.error("Unauthorized: getClaims failed", claimsError);
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -182,7 +184,27 @@ Deno.serve(async (req) => {
     const aiJson = await aiResp.json();
     const toolCall = aiJson?.choices?.[0]?.message?.tool_calls?.[0];
     const argsStr = toolCall?.function?.arguments;
-    const content = argsStr ? JSON.parse(argsStr) : null;
+    let content: any = null;
+    if (argsStr) {
+      try {
+        content = JSON.parse(argsStr);
+      } catch (e) {
+        console.error("Tool arguments JSON parse failed", e);
+        content = null;
+      }
+    }
+
+    // Fallback: sometimes providers return plain text instead of tool-calls
+    if (!content) {
+      const plain = aiJson?.choices?.[0]?.message?.content;
+      content = {
+        description: typeof plain === "string" ? plain : "",
+        shortPost: "",
+        sellingPoints: [],
+        hashtags: [],
+        pricing: {},
+      };
+    }
 
     // Section filtering (MVP)
     const filtered =
