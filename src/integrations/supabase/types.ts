@@ -19,6 +19,7 @@ export type Database = {
           created_at: string
           generated_description: string | null
           generated_hashtags: string[]
+          generated_image_urls: string[]
           generated_selling_points: string[]
           generated_short_post: string | null
           id: string
@@ -37,6 +38,7 @@ export type Database = {
           created_at?: string
           generated_description?: string | null
           generated_hashtags?: string[]
+          generated_image_urls?: string[]
           generated_selling_points?: string[]
           generated_short_post?: string | null
           id?: string
@@ -55,6 +57,7 @@ export type Database = {
           created_at?: string
           generated_description?: string | null
           generated_hashtags?: string[]
+          generated_image_urls?: string[]
           generated_selling_points?: string[]
           generated_short_post?: string | null
           id?: string
