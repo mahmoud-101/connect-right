@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       extracted_products: {
         Row: {
+          cover_image_url: string | null
           created_at: string
           generated_description: string | null
           generated_hashtags: string[]
@@ -35,6 +36,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          cover_image_url?: string | null
           created_at?: string
           generated_description?: string | null
           generated_hashtags?: string[]
@@ -54,6 +56,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          cover_image_url?: string | null
           created_at?: string
           generated_description?: string | null
           generated_hashtags?: string[]
