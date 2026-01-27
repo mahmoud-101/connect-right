@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/language";
+import { sanitizeErrorMessage } from "@/lib/errors";
 
 export default function Settings() {
   const { lang, setLang } = useLanguage();
@@ -27,7 +28,7 @@ export default function Settings() {
       setPlan(data?.subscription_plan ?? "free");
       if (data?.language === "en" || data?.language === "ar") setLang(data.language);
     } catch (err) {
-      toast({ title: "Error", description: err instanceof Error ? err.message : "Failed", variant: "destructive" });
+      toast({ title: "Error", description: sanitizeErrorMessage(err), variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -47,7 +48,7 @@ export default function Settings() {
       if (error) throw error;
       toast({ title: "Saved" });
     } catch (err) {
-      toast({ title: "Error", description: err instanceof Error ? err.message : "Failed", variant: "destructive" });
+      toast({ title: "Error", description: sanitizeErrorMessage(err), variant: "destructive" });
     }
   };
 

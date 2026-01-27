@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/language";
 import { formatDistanceToNow } from "date-fns";
+import { sanitizeErrorMessage } from "@/lib/errors";
 
 type Filter = "all" | "7" | "30";
 
@@ -31,7 +32,7 @@ export default function Library() {
 
       let q = supabase
         .from("extracted_products")
-        .select("id, product_title, product_image_urls, created_at, generated_short_post")
+        .select("id, product_title, product_image_urls, generated_image_urls, created_at, generated_short_post")
         .eq("user_id", userId)
         .eq("is_saved", true)
         .order("created_at", { ascending: false });
@@ -40,7 +41,7 @@ export default function Library() {
       if (error) throw error;
       setItems(data ?? []);
     } catch (err) {
-      toast({ title: "Error", description: err instanceof Error ? err.message : "Failed", variant: "destructive" });
+      toast({ title: "Error", description: sanitizeErrorMessage(err), variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -57,7 +58,7 @@ export default function Library() {
       if (error) throw error;
       setItems((prev) => prev.filter((x) => x.id !== id));
     } catch (err) {
-      toast({ title: "Error", description: err instanceof Error ? err.message : "Failed", variant: "destructive" });
+      toast({ title: "Error", description: sanitizeErrorMessage(err), variant: "destructive" });
     }
   };
 
@@ -88,9 +89,9 @@ export default function Library() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {items.map((it) => (
               <Card key={it.id} className="p-4">
-                {it.product_image_urls?.[0] && (
+                {(it.generated_image_urls?.[0] || it.product_image_urls?.[0]) && (
                   <img
-                    src={it.product_image_urls[0]}
+                    src={it.generated_image_urls?.[0] ?? it.product_image_urls?.[0]}
                     alt={it.product_title ?? "product"}
                     className="mb-3 h-40 w-full rounded-md object-cover"
                     loading="lazy"

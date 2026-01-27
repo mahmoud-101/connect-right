@@ -55,6 +55,63 @@ function cleanText(s?: string) {
   return s.replace(/\s+/g, " ").trim();
 }
 
+function parseDataUrl(dataUrl: string): { bytes: Uint8Array; contentType: string; ext: string } {
+  // Example: data:image/png;base64,AAA...
+  const m = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+  if (!m) throw new Error("Invalid image data");
+  const contentType = m[1];
+  const b64 = m[2];
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  const ext = contentType.includes("png") ? "png" : contentType.includes("jpeg") || contentType.includes("jpg") ? "jpg" : "png";
+  return { bytes, contentType, ext };
+}
+
+async function generateProductImages(args: {
+  apiKey: string;
+  title: string;
+  specs: string;
+  tone: Tone;
+  count?: number;
+}): Promise<string[]> {
+  const { apiKey, title, specs, tone } = args;
+  const count = Math.max(1, Math.min(args.count ?? 2, 4));
+
+  const basePrompt = `Create a clean e-commerce product photo suitable for Arabic social commerce.
+Product: ${title || "(unknown)"}
+Details: ${specs || "(unknown)"}
+Style: ${tone}
+Requirements: neutral background, high detail, realistic lighting, no text, no watermark, centered product, 1:1.`;
+
+  const out: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-image",
+        messages: [{ role: "user", content: `${basePrompt}\nVariant: ${i + 1}` }],
+        modalities: ["image", "text"],
+      }),
+    });
+
+    if (!resp.ok) {
+      const text = await resp.text();
+      console.error("Image model error", resp.status, text);
+      continue;
+    }
+    const json = await resp.json();
+    const dataUrl = json?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    if (typeof dataUrl === "string" && dataUrl.startsWith("data:image/")) out.push(dataUrl);
+  }
+
+  return out;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders(req) });
 
@@ -148,7 +205,7 @@ Deno.serve(async (req) => {
     const systemPrompt =
       "You are an expert Arabic copywriter specializing in social commerce for Egyptian and Gulf audiences. Write natural Arabic (not overly formal).";
 
-    const userPrompt = `Product details:\nTitle: ${productTitle || "(unknown)"}\nPrice: ${productPrice || "(unknown)"}\nSpecifications: ${productSpecs || "(unknown)"}\n\nTone: ${tone}\n\nGenerate:\n1) FULL DESCRIPTION (150-250 words)\n2) SHORT SOCIAL POST (50-80 words) with 2-3 emojis\n3) 4-5 selling points (benefits)\n4) 10 Arabic hashtags\n5) Pricing suggestion with markup options 30/50/100 and profit margins.`;
+    const userPrompt = `Product details:\nTitle: ${productTitle || "(unknown)"}\nPrice: ${productPrice || "(unknown)"}\nSpecifications: ${productSpecs || "(unknown)"}\n\nTone: ${tone}\n\nWrite Arabic suitable for Egypt + Gulf audiences.\nRules: avoid exaggerated claims, keep it natural, include clear benefits.\n\nGenerate:\n1) وصف كامل (150-220 كلمة)\n2) بوست قصير للسوشيال (50-80 كلمة) + 2-3 إيموجي\n3) 5 نقاط بيع (فوائد)\n4) 10 هاشتاج عربي\n5) تسعير مقترح: سعر الشراء (إن متاح) + 3 خيارات بيع بهامش 30/50/100 مع توضيح الربح.`;
 
     const body: any = {
       model: "google/gemini-3-flash-preview",
@@ -227,6 +284,40 @@ Deno.serve(async (req) => {
           }
         : content;
 
+    // 3) Optional: generate AI images (only for full generation)
+    let generatedImageUrls: string[] = [];
+    try {
+      if (!section || section === "all") {
+        const dataUrls = await generateProductImages({
+          apiKey: LOVABLE_API_KEY,
+          title: productTitle,
+          specs: productSpecs,
+          tone,
+          count: 2,
+        });
+
+        // Upload as the authenticated user into their folder: user_id/... (matches storage policy)
+        const userId = claimsData.claims.sub as string;
+        for (const dataUrl of dataUrls) {
+          const { bytes, contentType, ext } = parseDataUrl(dataUrl);
+          const path = `${userId}/${crypto.randomUUID()}.${ext}`;
+          const uploadRes = await client.storage.from("product-images").upload(path, bytes, {
+            contentType,
+            upsert: false,
+          });
+          if (uploadRes.error) {
+            console.error("Storage upload error", uploadRes.error);
+            continue;
+          }
+          const pub = client.storage.from("product-images").getPublicUrl(path);
+          if (pub.data?.publicUrl) generatedImageUrls.push(pub.data.publicUrl);
+        }
+      }
+    } catch (e) {
+      console.error("Image generation failed", e);
+      generatedImageUrls = [];
+    }
+
     return new Response(
       JSON.stringify({
         productData: {
@@ -234,6 +325,7 @@ Deno.serve(async (req) => {
           price: productPrice,
           specs: productSpecs,
           imageUrls,
+          generatedImageUrls,
           ratingsSummary: "",
         },
         content: filtered,
