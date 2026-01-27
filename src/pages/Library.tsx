@@ -32,7 +32,7 @@ export default function Library() {
 
       let q = supabase
         .from("extracted_products")
-        .select("id, product_title, product_image_urls, generated_image_urls, created_at, generated_short_post")
+        .select("id, product_title, cover_image_url, product_image_urls, generated_image_urls, created_at, generated_short_post")
         .eq("user_id", userId)
         .eq("is_saved", true)
         .order("created_at", { ascending: false });
@@ -89,9 +89,9 @@ export default function Library() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {items.map((it) => (
               <Card key={it.id} className="p-4">
-                {(it.generated_image_urls?.[0] || it.product_image_urls?.[0]) && (
+                {(it.cover_image_url || it.generated_image_urls?.[0] || it.product_image_urls?.[0]) && (
                   <img
-                    src={it.generated_image_urls?.[0] ?? it.product_image_urls?.[0]}
+                    src={it.cover_image_url ?? it.generated_image_urls?.[0] ?? it.product_image_urls?.[0]}
                     alt={it.product_title ?? "product"}
                     className="mb-3 h-40 w-full rounded-md object-cover"
                     loading="lazy"
