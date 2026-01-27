@@ -84,6 +84,76 @@ const Index = () => {
           </Card>
         </div>
       </section>
+
+      <section className="mx-auto w-full max-w-6xl px-4 pb-16">
+        <h2 className="mb-4 text-2xl font-semibold">Pricing</h2>
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card className="p-6">
+            <div className="text-sm font-semibold">Free</div>
+            <div className="mt-2 text-3xl font-semibold">0</div>
+            <ul className="mt-4 list-disc space-y-1 ps-6 text-sm text-muted-foreground">
+              <li>10 products / month</li>
+              <li>Arabic content only</li>
+              <li>Basic extraction</li>
+            </ul>
+            <Button className="mt-6 w-full" asChild>
+              <Link to={primaryHref}>Start free</Link>
+            </Button>
+          </Card>
+
+          <Card className="p-6">
+            <div className="text-sm font-semibold">Basic</div>
+            <div className="mt-2 text-3xl font-semibold">199 EGP</div>
+            <div className="text-sm text-muted-foreground">$15 (Gulf)</div>
+            <ul className="mt-4 list-disc space-y-1 ps-6 text-sm text-muted-foreground">
+              <li>100 products / month</li>
+              <li>3 writing styles</li>
+              <li>Save up to 50 products</li>
+              <li>PDF export</li>
+            </ul>
+            <Button className="mt-6 w-full" asChild>
+              <Link to={primaryHref}>Start now</Link>
+            </Button>
+          </Card>
+
+          <Card className="p-6">
+            <div className="text-sm font-semibold">Pro</div>
+            <div className="mt-2 text-3xl font-semibold">399 EGP</div>
+            <div className="text-sm text-muted-foreground">$30 (Gulf)</div>
+            <ul className="mt-4 list-disc space-y-1 ps-6 text-sm text-muted-foreground">
+              <li>Unlimited products</li>
+              <li>All Basic features</li>
+              <li>Unlimited saved products</li>
+              <li>Priority support</li>
+            </ul>
+            <Button className="mt-6 w-full" variant="secondary" asChild>
+              <Link to={primaryHref}>Upgrade</Link>
+            </Button>
+          </Card>
+        </div>
+      </section>
+
+      <section className="mx-auto w-full max-w-6xl px-4 pb-20">
+        <h2 className="mb-4 text-2xl font-semibold">FAQ</h2>
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card className="p-6">
+            <div className="text-sm font-semibold">هل الأداة تدعم العربية فقط؟</div>
+            <div className="mt-2 text-sm text-muted-foreground">حالياً نركز على المحتوى العربي لأنه الأكثر طلباً. الإنجليزي قريباً.</div>
+          </Card>
+          <Card className="p-6">
+            <div className="text-sm font-semibold">ما هي المواقع المدعومة للاستخراج؟</div>
+            <div className="mt-2 text-sm text-muted-foreground">AliExpress, Amazon, 1688 وأغلب مواقع التجارة الإلكترونية.</div>
+          </Card>
+          <Card className="p-6">
+            <div className="text-sm font-semibold">هل يمكنني تعديل المحتوى المولّد؟</div>
+            <div className="mt-2 text-sm text-muted-foreground">نعم—يمكنك تعديل أي جزء قبل النسخ أو التصدير.</div>
+          </Card>
+          <Card className="p-6">
+            <div className="text-sm font-semibold">كيف أدفع من مصر؟</div>
+            <div className="mt-2 text-sm text-muted-foreground">حاليًا الدفع قيد التجهيز (فوري/فودافون كاش/بطاقات) — قريباً.</div>
+          </Card>
+        </div>
+      </section>
     </main>
   );
 };

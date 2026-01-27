@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { AppHeader } from "@/components/AppHeader";
@@ -39,6 +40,10 @@ export default function Extract() {
   const [stage, setStage] = useState<"idle" | "extract" | "generate">("idle");
   const [data, setData] = useState<Generated | null>(null);
   const [rowId, setRowId] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState<{ description: string; shortPost: string; hashtags: string; sellingPoints: string }>(
+    { description: "", shortPost: "", hashtags: "", sellingPoints: "" },
+  );
 
   const allText = useMemo(() => {
     if (!data?.content) return "";
@@ -74,6 +79,13 @@ export default function Extract() {
       const parsed = fnData as Generated & { error?: string };
       if ((parsed as any)?.error) throw new Error((parsed as any).error);
       setData(parsed);
+      setEditing(false);
+      setDraft({
+        description: parsed.content?.description ?? "",
+        shortPost: parsed.content?.shortPost ?? "",
+        hashtags: (parsed.content?.hashtags ?? []).join(" "),
+        sellingPoints: (parsed.content?.sellingPoints ?? []).join("\n"),
+      });
 
       const imageUrls = parsed.productData?.imageUrls ?? [];
       const insert: Database["public"]["Tables"]["extracted_products"]["Insert"] = {
@@ -104,6 +116,39 @@ export default function Extract() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed";
       toast({ title: "Error", description: msg, variant: "destructive" });
+    } finally {
+      setLoading(false);
+      setStage("idle");
+    }
+  };
+
+  const regenerate = async (section: "description" | "short_post" | "selling_points" | "hashtags" | "pricing") => {
+    if (!url.trim()) return;
+    setLoading(true);
+    setStage("generate");
+    try {
+      const { data: fnData, error: fnError } = await supabase.functions.invoke("generate-product-content", {
+        body: { url, tone, section },
+      });
+      if (fnError) throw fnError;
+      const parsed = fnData as any;
+      if (parsed?.error) throw new Error(parsed.error);
+
+      setData((prev) => {
+        if (!prev) return prev;
+        const next = structuredClone(prev) as Generated;
+        next.content = next.content ?? {};
+        if (section === "description") next.content.description = parsed.content?.description ?? next.content.description;
+        if (section === "short_post") next.content.shortPost = parsed.content?.shortPost ?? next.content.shortPost;
+        if (section === "selling_points") next.content.sellingPoints = parsed.content?.sellingPoints ?? next.content.sellingPoints;
+        if (section === "hashtags") next.content.hashtags = parsed.content?.hashtags ?? next.content.hashtags;
+        if (section === "pricing") next.content.pricing = parsed.content?.pricing ?? next.content.pricing;
+        return next;
+      });
+
+      toast({ title: "Updated" });
+    } catch (err) {
+      toast({ title: "Error", description: err instanceof Error ? err.message : "Failed", variant: "destructive" });
     } finally {
       setLoading(false);
       setStage("idle");
@@ -180,6 +225,7 @@ export default function Extract() {
     setTone("casual");
     setData(null);
     setRowId(null);
+    setEditing(false);
   };
 
   return (
@@ -230,32 +276,89 @@ export default function Extract() {
               <Button variant="secondary" onClick={exportPdf}>
                 {t("exportPdf")}
               </Button>
+              <Button variant="secondary" onClick={() => setEditing((v) => !v)}>
+                {editing ? "Done" : "Edit"}
+              </Button>
               <Button variant="outline" onClick={reset}>
                 {t("extractAnother")}
               </Button>
             </div>
 
             <Card className="p-6">
-              <h2 className="text-lg font-semibold">Description</h2>
-              <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">{data.content?.description}</p>
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-lg font-semibold">Description</h2>
+                <Button variant="outline" size="sm" disabled={loading} onClick={() => regenerate("description")}>
+                  Regenerate
+                </Button>
+              </div>
+              {editing ? (
+                <Textarea
+                  className="mt-3"
+                  value={draft.description}
+                  onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))}
+                />
+              ) : (
+                <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">{draft.description}</p>
+              )}
             </Card>
             <Card className="p-6">
-              <h2 className="text-lg font-semibold">Post</h2>
-              <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">{data.content?.shortPost}</p>
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-lg font-semibold">Post</h2>
+                <Button variant="outline" size="sm" disabled={loading} onClick={() => regenerate("short_post")}>
+                  Regenerate
+                </Button>
+              </div>
+              {editing ? (
+                <Textarea
+                  className="mt-3"
+                  value={draft.shortPost}
+                  onChange={(e) => setDraft((d) => ({ ...d, shortPost: e.target.value }))}
+                />
+              ) : (
+                <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">{draft.shortPost}</p>
+              )}
             </Card>
             <Card className="p-6">
-              <h2 className="text-lg font-semibold">Selling points</h2>
-              <ul className="mt-2 list-disc space-y-1 ps-6 text-sm text-muted-foreground">
-                {(data.content?.sellingPoints ?? []).map((p, i) => (
-                  <li key={i}>{p}</li>
-                ))}
-              </ul>
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-lg font-semibold">Selling points</h2>
+                <Button variant="outline" size="sm" disabled={loading} onClick={() => regenerate("selling_points")}>
+                  Regenerate
+                </Button>
+              </div>
+              {editing ? (
+                <Textarea
+                  className="mt-3"
+                  value={draft.sellingPoints}
+                  onChange={(e) => setDraft((d) => ({ ...d, sellingPoints: e.target.value }))}
+                />
+              ) : (
+                <ul className="mt-2 list-disc space-y-1 ps-6 text-sm text-muted-foreground">
+                  {draft.sellingPoints
+                    .split("\n")
+                    .map((x) => x.trim())
+                    .filter(Boolean)
+                    .map((p, i) => (
+                      <li key={i}>{p}</li>
+                    ))}
+                </ul>
+              )}
             </Card>
             <Card className="p-6">
-              <h2 className="text-lg font-semibold">Hashtags</h2>
-              <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">
-                {(data.content?.hashtags ?? []).join(" ")}
-              </p>
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-lg font-semibold">Hashtags</h2>
+                <Button variant="outline" size="sm" disabled={loading} onClick={() => regenerate("hashtags")}>
+                  Regenerate
+                </Button>
+              </div>
+              {editing ? (
+                <Textarea
+                  className="mt-3"
+                  value={draft.hashtags}
+                  onChange={(e) => setDraft((d) => ({ ...d, hashtags: e.target.value }))}
+                />
+              ) : (
+                <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">{draft.hashtags}</p>
+              )}
             </Card>
           </div>
         )}
