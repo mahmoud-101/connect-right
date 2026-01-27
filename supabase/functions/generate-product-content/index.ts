@@ -1,9 +1,11 @@
 function corsHeaders(req: Request) {
   const origin = req.headers.get("Origin") ?? "*";
+  const reqHeaders = req.headers.get("Access-Control-Request-Headers");
   return {
     "Access-Control-Allow-Origin": origin,
     "Vary": "Origin",
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    // Echo requested headers to avoid mobile/webview CORS mismatches (e.g. x-supabase-client-platform)
+    "Access-Control-Allow-Headers": reqHeaders ?? "authorization, x-client-info, apikey, content-type, x-supabase-client-platform",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Access-Control-Max-Age": "86400",
   };
