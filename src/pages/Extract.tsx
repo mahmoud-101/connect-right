@@ -118,7 +118,13 @@ export default function Extract() {
       if (insertError) throw insertError;
       if (row?.id) setRowId(row.id);
     } catch (err) {
-      toast({ title: "Error", description: sanitizeErrorMessage(err), variant: "destructive" });
+      // Supabase functions errors may contain a JSON body with a user-friendly message.
+      const bodyMsg = (err as any)?.context?.body?.error;
+      toast({
+        title: "Error",
+        description: typeof bodyMsg === "string" && bodyMsg.trim() ? bodyMsg : sanitizeErrorMessage(err),
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
       setStage("idle");
@@ -165,7 +171,12 @@ export default function Extract() {
 
       toast({ title: "Images generated" });
     } catch (err) {
-      toast({ title: "Error", description: sanitizeErrorMessage(err), variant: "destructive" });
+      const bodyMsg = (err as any)?.context?.body?.error;
+      toast({
+        title: "Error",
+        description: typeof bodyMsg === "string" && bodyMsg.trim() ? bodyMsg : sanitizeErrorMessage(err),
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
       setStage("idle");
@@ -210,7 +221,12 @@ export default function Extract() {
 
       toast({ title: "Updated" });
     } catch (err) {
-      toast({ title: "Error", description: sanitizeErrorMessage(err), variant: "destructive" });
+      const bodyMsg = (err as any)?.context?.body?.error;
+      toast({
+        title: "Error",
+        description: typeof bodyMsg === "string" && bodyMsg.trim() ? bodyMsg : sanitizeErrorMessage(err),
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
       setStage("idle");
