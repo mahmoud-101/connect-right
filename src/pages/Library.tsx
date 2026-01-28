@@ -3,6 +3,14 @@ import { Link } from "react-router-dom";
 import { AppHeader } from "@/components/AppHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/language";
@@ -10,12 +18,15 @@ import { formatDistanceToNow } from "date-fns";
 import { sanitizeErrorMessage } from "@/lib/errors";
 
 type Filter = "all" | "7" | "30";
+type SortBy = "recent" | "oldest" | "title";
 
 export default function Library() {
   const { t } = useLanguage();
   const { toast } = useToast();
   const [items, setItems] = useState<any[]>([]);
   const [filter, setFilter] = useState<Filter>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState<SortBy>("recent");
   const [loading, setLoading] = useState(true);
 
   const since = useMemo(() => {
@@ -53,6 +64,25 @@ export default function Library() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter]);
 
+  const filteredItems = useMemo(() => {
+    let res = [...items];
+
+    const q = searchQuery.trim().toLowerCase();
+    if (q) {
+      res = res.filter((it) => (it.product_title ?? "").toLowerCase().includes(q));
+    }
+
+    if (sortBy === "title") {
+      res.sort((a, b) => (a.product_title ?? "").localeCompare(b.product_title ?? ""));
+    } else if (sortBy === "oldest") {
+      res.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    } else {
+      res.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    }
+
+    return res;
+  }, [items, searchQuery, sortBy]);
+
   const del = async (id: string) => {
     try {
       const { error } = await supabase.from("extracted_products").delete().eq("id", id);
@@ -82,13 +112,31 @@ export default function Library() {
           </div>
         </div>
 
+        <div className="mb-6 grid gap-3 md:grid-cols-[1fr_220px]">
+          <Input
+            placeholder={t("search") ?? "ابحث في المكتبة..."}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortBy)}>
+            <SelectTrigger>
+              <SelectValue placeholder={t("sort") ?? "فرز"} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="recent">{t("sortRecent") ?? "الأحدث"}</SelectItem>
+              <SelectItem value="oldest">{t("sortOldest") ?? "الأقدم"}</SelectItem>
+              <SelectItem value="title">{t("sortTitle") ?? "حسب العنوان"}</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
         {loading ? (
           <div className="text-sm text-muted-foreground">Loading...</div>
-        ) : items.length === 0 ? (
+        ) : filteredItems.length === 0 ? (
           <div className="text-sm text-muted-foreground">No saved products yet.</div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {items.map((it) => (
+            {filteredItems.map((it) => (
               <Card key={it.id} className="p-4">
                 {(it.cover_image_url || it.generated_image_urls?.[0] || it.product_image_urls?.[0]) && (
                   <img

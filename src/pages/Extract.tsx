@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { AppHeader } from "@/components/AppHeader";
@@ -12,6 +13,9 @@ import { copyToClipboard } from "@/lib/copy";
 import { exportAsPdf } from "@/lib/pdf";
 import { sanitizeErrorMessage } from "@/lib/errors";
 import type { Database } from "@/integrations/supabase/types";
+import { buildWhatsAppText, openWhatsAppShare } from "@/lib/whatsapp";
+import { track } from "@/lib/analytics";
+import { MessageCircle } from "lucide-react";
 
 type Tone = "casual" | "professional" | "luxury" | "friendly";
 type Generated = {
@@ -45,11 +49,17 @@ export default function Extract() {
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
 
-  const [manualMode, setManualMode] = useState(false);
+  const [inputMode, setInputMode] = useState<"url" | "manual">("url");
   const [manualTitle, setManualTitle] = useState("");
   const [manualPrice, setManualPrice] = useState("");
   const [manualSpecs, setManualSpecs] = useState("");
   const [manualImages, setManualImages] = useState("");
+  const [manualFiles, setManualFiles] = useState<File[]>([]);
+
+  const [usageLoading, setUsageLoading] = useState(true);
+  const [usageCount, setUsageCount] = useState<number>(0);
+  const [usageLimit, setUsageLimit] = useState<number>(10);
+  const [usagePlan, setUsagePlan] = useState<string>("free");
   const [draft, setDraft] = useState<{ description: string; shortPost: string; hashtags: string; sellingPoints: string }>(
     { description: "", shortPost: "", hashtags: "", sellingPoints: "" },
   );
@@ -67,19 +77,83 @@ export default function Extract() {
     return parts.join("\n");
   }, [data]);
 
+  const loadUsage = async () => {
+    setUsageLoading(true);
+    try {
+      const { data: auth } = await supabase.auth.getUser();
+      const userId = auth.user?.id;
+      if (!userId) throw new Error("Unauthorized");
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("subscription_plan")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      const plan = profile?.subscription_plan ?? "free";
+      const limit = plan === "pro" ? Number.POSITIVE_INFINITY : plan === "basic" ? 50 : 10;
+
+      const monthStart = new Date();
+      monthStart.setDate(1);
+      monthStart.setHours(0, 0, 0, 0);
+
+      const { count } = await supabase
+        .from("usage_logs")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .eq("action", "extract")
+        .gte("created_at", monthStart.toISOString());
+
+      setUsagePlan(plan);
+      setUsageLimit(limit);
+      setUsageCount(count ?? 0);
+    } catch {
+      // silent; usage UI is best-effort
+    } finally {
+      setUsageLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadUsage();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const limitReached = useMemo(() => {
+    if (usageLimit === Number.POSITIVE_INFINITY) return false;
+    return usageCount >= usageLimit;
+  }, [usageCount, usageLimit]);
+
+  const usagePct = useMemo(() => {
+    if (usageLimit === Number.POSITIVE_INFINITY) return 0;
+    return Math.max(0, Math.min(100, Math.round((usageCount / Math.max(usageLimit, 1)) * 100)));
+  }, [usageCount, usageLimit]);
+
   const run = async () => {
+    if (limitReached) {
+      toast({
+        title: "تم الوصول للحد الشهري",
+        description: "انضم/ي لقائمة الانتظار للترقية قريباً.",
+        variant: "destructive",
+      });
+      return;
+    }
     if (!url.trim()) return;
     setLoading(true);
     setStage("extract");
     setData(null);
     setRowId(null);
     setCoverUrl(null);
-    setManualMode(false);
+    setInputMode("url");
 
     try {
       const { data: auth } = await supabase.auth.getUser();
       const userId = auth.user?.id;
       if (!userId) throw new Error("Unauthorized");
+
+      if (!auth.user?.email_confirmed_at) {
+        throw new Error("يرجى تأكيد البريد الإلكتروني قبل الاستخدام.");
+      }
 
       setStage("generate");
       const { data: fnData, error: fnError } = await supabase.functions.invoke("generate-product-content", {
@@ -124,6 +198,10 @@ export default function Extract() {
         .maybeSingle();
       if (insertError) throw insertError;
       if (row?.id) setRowId(row.id);
+
+      await supabase.from("usage_logs").insert({ user_id: userId, action: "extract" });
+      track("product_extracted", { has_images: (imageUrls?.length ?? 0) > 0, tone });
+      loadUsage();
     } catch (err) {
       // Supabase functions errors may contain a JSON body with a user-friendly message.
       const body = (err as any)?.context?.body;
@@ -132,7 +210,7 @@ export default function Extract() {
 
       if (bodyCode === "AUTH_REQUIRED_OR_NOT_PRODUCT") {
         // Offer a no-scrape fallback that uses the internal webhook endpoint.
-        setManualMode(true);
+        setInputMode("manual");
       }
       toast({
         title: "Error",
@@ -148,12 +226,25 @@ export default function Extract() {
   const generateFromManual = async () => {
     const title = manualTitle.trim();
     const specs = manualSpecs.trim();
-    const imageUrls = manualImages
+    const imageUrlsFromText = manualImages
       .split("\n")
       .map((x) => x.trim())
       .filter(Boolean);
 
-    if (!title && !specs && imageUrls.length === 0) {
+    const uploadFiles = async (userId: string, files: File[]) => {
+      if (!files.length) return [] as string[];
+      const uploaded: string[] = [];
+      for (const file of files) {
+        const path = `${userId}/${Date.now()}-${file.name}`;
+        const { error } = await supabase.storage.from("product-images").upload(path, file, { upsert: false });
+        if (error) throw error;
+        const { data } = supabase.storage.from("product-images").getPublicUrl(path);
+        if (data?.publicUrl) uploaded.push(data.publicUrl);
+      }
+      return uploaded;
+    };
+
+    if (!title && !specs && imageUrlsFromText.length === 0 && manualFiles.length === 0) {
       toast({
         title: "Error",
         description: "اكتب عنوان أو مواصفات أو على الأقل رابط صورة واحدة.",
@@ -165,6 +256,16 @@ export default function Extract() {
     setLoading(true);
     setStage("generate");
     try {
+      const { data: auth } = await supabase.auth.getUser();
+      const userId = auth.user?.id;
+      if (!userId) throw new Error("Unauthorized");
+      if (!auth.user?.email_confirmed_at) {
+        throw new Error("يرجى تأكيد البريد الإلكتروني قبل الاستخدام.");
+      }
+
+      const uploadedUrls = await uploadFiles(userId, manualFiles);
+      const imageUrls = Array.from(new Set([...imageUrlsFromText, ...uploadedUrls]));
+
       const { data: fnData, error: fnError } = await supabase.functions.invoke("affiliate-webhook", {
         body: {
           url: url.trim() || undefined,
@@ -210,6 +311,8 @@ export default function Extract() {
       if (id) setRowId(id);
       setCoverUrl(imageUrls[0] ?? null);
       toast({ title: "تم التوليد من البيانات اليدوية" });
+      track("product_extracted", { has_images: imageUrls.length > 0, tone, source: "manual" });
+      loadUsage();
     } catch (err) {
       const bodyMsg = (err as any)?.context?.body?.error;
       toast({
@@ -361,6 +464,7 @@ export default function Extract() {
       if (error) throw error;
       await supabase.from("usage_logs").insert({ user_id: userId, action: "save" });
       toast({ title: "Saved" });
+      track("product_saved", {});
     } catch (err) {
       toast({ title: "Error", description: sanitizeErrorMessage(err), variant: "destructive" });
     }
@@ -370,6 +474,29 @@ export default function Extract() {
     if (!allText) return;
     await copyToClipboard(allText);
     toast({ title: "Copied" });
+    track("content_copied", { source: "extract" });
+  };
+
+  const shareToWhatsApp = () => {
+    if (!data) return;
+    const selling = draft.sellingPoints
+      .split("\n")
+      .map((x) => x.trim())
+      .filter(Boolean);
+    const hashtags = draft.hashtags
+      .split(/\s+/)
+      .map((x) => x.trim())
+      .filter(Boolean);
+
+    const text = buildWhatsAppText({
+      title: data.productData?.title ?? null,
+      description: draft.description,
+      sellingPoints: selling,
+      price: data.productData?.price ?? null,
+      hashtags,
+    });
+    openWhatsAppShare(text);
+    track("whatsapp_share_clicked", { source: "extract" });
   };
 
   const exportPdf = () => {
@@ -397,11 +524,12 @@ export default function Extract() {
     setRowId(null);
     setCoverUrl(null);
     setEditing(false);
-    setManualMode(false);
+    setInputMode("url");
     setManualTitle("");
     setManualPrice("");
     setManualSpecs("");
     setManualImages("");
+    setManualFiles([]);
   };
 
   return (
@@ -413,11 +541,60 @@ export default function Extract() {
           <p className="mt-1 text-sm text-muted-foreground">{t("pasteUrl")}</p>
         </div>
 
+        <Card className="mb-6 p-4">
+          {usageLoading ? (
+            <div className="text-sm text-muted-foreground">Loading usage…</div>
+          ) : (
+            <div className="grid gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="text-sm font-medium">
+                  {usageLimit === Number.POSITIVE_INFINITY
+                    ? `Used ${usageCount} (Pro)`
+                    : `Used ${usageCount} of ${usageLimit} this month`}
+                </div>
+                {limitReached ? (
+                  <Button asChild variant="secondary" size="sm">
+                    <a href="/" onClick={() => track("upgrade_waitlist_clicked", { source: "usage_limit" })}>
+                      Join waitlist
+                    </a>
+                  </Button>
+                ) : null}
+              </div>
+              {usageLimit === Number.POSITIVE_INFINITY ? null : <Progress value={usagePct} />}
+              {usageLimit !== Number.POSITIVE_INFINITY && usagePct >= 80 ? (
+                <div className="text-xs text-muted-foreground">
+                  {usagePct >= 100
+                    ? "تم الوصول للحد الشهري."
+                    : "اقتربت من الحد الشهري—فكر/ي في الترقية قريباً."}
+                </div>
+              ) : null}
+              <div className="text-xs text-muted-foreground">Plan: {usagePlan}</div>
+            </div>
+          )}
+        </Card>
+
         <Card className="p-6">
           <div className="grid gap-4">
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant={inputMode === "url" ? "default" : "secondary"}
+                onClick={() => setInputMode("url")}
+              >
+                استخراج من رابط
+              </Button>
+              <Button
+                type="button"
+                variant={inputMode === "manual" ? "default" : "secondary"}
+                onClick={() => setInputMode("manual")}
+              >
+                إدخال يدوي
+              </Button>
+            </div>
+
             <div className="grid gap-2">
               <Label htmlFor="url">URL</Label>
-              <Input id="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://..." />
+              <Input id="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://..." disabled={inputMode === "manual"} />
             </div>
 
             <div className="grid gap-2">
@@ -436,13 +613,19 @@ export default function Extract() {
               </div>
             </div>
 
-            <Button onClick={run} disabled={loading || !url.trim()} size="lg">
-              {loading ? (stage === "extract" ? t("extracting") : t("generating")) : t("extractTitle")}
-            </Button>
+            {inputMode === "url" ? (
+              <Button onClick={run} disabled={loading || !url.trim() || limitReached} size="lg">
+                {loading ? (stage === "extract" ? t("extracting") : t("generating")) : t("extractTitle")}
+              </Button>
+            ) : (
+              <Button onClick={generateFromManual} disabled={loading || limitReached} size="lg">
+                {loading ? t("generating") : "توليد المحتوى من البيانات"}
+              </Button>
+            )}
           </div>
         </Card>
 
-        {manualMode && !data ? (
+        {inputMode === "manual" && !data ? (
           <Card className="mt-6 p-6">
             <div className="space-y-2">
               <h2 className="text-lg font-semibold">بديل سريع لروابط الأفلييت (بدون Scraping)</h2>
@@ -477,9 +660,17 @@ export default function Extract() {
                 />
               </div>
 
-              <Button onClick={generateFromManual} disabled={loading} size="lg">
-                {loading ? t("generating") : "توليد المحتوى من البيانات"}
-              </Button>
+              <div className="grid gap-2">
+                <Label htmlFor="manualFiles">رفع صور المنتج (اختياري)</Label>
+                <Input
+                  id="manualFiles"
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={(e) => setManualFiles(Array.from(e.target.files ?? []))}
+                />
+                <div className="text-xs text-muted-foreground">لن نخزن الصور في قاعدة البيانات—سيتم رفعها للتخزين وحفظ الروابط فقط.</div>
+              </div>
             </div>
           </Card>
         ) : null}
@@ -524,6 +715,10 @@ export default function Extract() {
 
             <div className="flex flex-wrap gap-2">
               <Button onClick={saveToLibrary}>{t("save")}</Button>
+              <Button variant="secondary" onClick={shareToWhatsApp} disabled={!data}>
+                <MessageCircle className="h-4 w-4" />
+                مشاركة واتساب
+              </Button>
               <Button variant="secondary" onClick={copyAll}>
                 {t("copyAll")}
               </Button>

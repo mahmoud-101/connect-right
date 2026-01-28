@@ -18,12 +18,14 @@ export default function Auth() {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [signupPendingVerification, setSignupPendingVerification] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
       if (mode === "signup") {
+        setSignupPendingVerification(false);
         const { error } = await supabase.auth.signUp({
           email,
           password,
@@ -33,12 +35,30 @@ export default function Auth() {
           },
         });
         if (error) throw error;
-        toast({ title: "تم إنشاء الحساب", description: "تقدر تدخل الآن" });
+        setSignupPendingVerification(true);
+        toast({ title: "تم إنشاء الحساب", description: "افحص بريدك الإلكتروني لتأكيد الحساب" });
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
+        setSignupPendingVerification(false);
+        navigate("/extract");
       }
-      navigate("/extract");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "حدث خطأ";
+      toast({ title: "خطأ", description: message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resendVerification = async () => {
+    const e = email.trim();
+    if (!e) return;
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.resend({ type: "signup", email: e });
+      if (error) throw error;
+      toast({ title: "تم الإرسال", description: "تم إرسال رابط التأكيد مرة أخرى" });
     } catch (err) {
       const message = err instanceof Error ? err.message : "حدث خطأ";
       toast({ title: "خطأ", description: message, variant: "destructive" });
@@ -70,6 +90,22 @@ export default function Auth() {
           </div>
 
           <form onSubmit={submit} className="grid gap-4">
+            {mode === "signup" && signupPendingVerification ? (
+              <div className="rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground">
+                تم إنشاء الحساب. برجاء فتح بريدك الإلكتروني والضغط على رابط التأكيد.
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button type="button" variant="secondary" onClick={resendVerification} disabled={loading || !email.trim()}>
+                    إعادة إرسال رابط التأكيد
+                  </Button>
+                  <Button type="button" variant="outline" onClick={() => setMode("login")}
+                    disabled={loading}
+                  >
+                    لدي حساب بالفعل
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+
             {mode === "signup" && (
               <div className="grid gap-2">
                 <Label htmlFor="fullName">{t("fullName")}</Label>
