@@ -14,6 +14,7 @@ export default function Settings() {
   const { toast } = useToast();
   const [fullName, setFullName] = useState("");
   const [plan, setPlan] = useState("free");
+  const [emailVerified, setEmailVerified] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
@@ -22,6 +23,8 @@ export default function Settings() {
       const { data: auth } = await supabase.auth.getUser();
       const userId = auth.user?.id;
       if (!userId) throw new Error("Unauthorized");
+
+      setEmailVerified(!!auth.user?.email_confirmed_at);
 
       const { data } = await supabase.from("profiles").select("full_name, subscription_plan, language").eq("user_id", userId).maybeSingle();
       setFullName(data?.full_name ?? "");
@@ -66,6 +69,16 @@ export default function Settings() {
                 <div className="text-sm text-muted-foreground">Loading...</div>
               ) : (
                 <>
+                  <div className="rounded-md border bg-muted/30 p-3 text-sm">
+                    <div className="font-medium">Email verification</div>
+                    <div className="mt-1 text-muted-foreground">
+                      {emailVerified === null
+                        ? "—"
+                        : emailVerified
+                          ? "Verified"
+                          : "Not verified yet. Please check your inbox."}
+                    </div>
+                  </div>
                   <div className="grid gap-2">
                     <Label htmlFor="fullName">Full name</Label>
                     <Input id="fullName" value={fullName} onChange={(e) => setFullName(e.target.value)} />

@@ -10,6 +10,9 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { sanitizeErrorMessage } from "@/lib/errors";
 import { exportAsPdf } from "@/lib/pdf";
+import { buildWhatsAppText, openWhatsAppShare } from "@/lib/whatsapp";
+import { track } from "@/lib/analytics";
+import { MessageCircle } from "lucide-react";
 
 type Tone = "casual" | "professional" | "luxury" | "friendly";
 
@@ -212,6 +215,29 @@ export default function LibraryItem() {
     });
   };
 
+  const shareToWhatsApp = () => {
+    if (!item) return;
+    const selling = draft.sellingPoints
+      .split("\n")
+      .map((x) => x.trim())
+      .filter(Boolean);
+    const hashtags = draft.hashtags
+      .split(/\s+/)
+      .map((x) => x.trim())
+      .filter(Boolean);
+
+    const text = buildWhatsAppText({
+      title,
+      description: draft.description,
+      sellingPoints: selling,
+      price: item.original_price,
+      hashtags,
+    });
+
+    openWhatsAppShare(text);
+    track("whatsapp_share_clicked", { source: "library_item" });
+  };
+
   const images = useMemo(() => {
     if (!item) return [] as string[];
     return Array.from(
@@ -231,6 +257,10 @@ export default function LibraryItem() {
           <div className="flex flex-wrap gap-2">
             <Button variant="secondary" onClick={() => nav("/library")}>
               {lang === "ar" ? "رجوع" : "Back"}
+            </Button>
+            <Button variant="secondary" onClick={shareToWhatsApp} disabled={loading || !item}>
+              <MessageCircle className="h-4 w-4" />
+              {lang === "ar" ? "مشاركة واتساب" : "WhatsApp"}
             </Button>
             <Button variant="secondary" onClick={exportPdf}>
               {lang === "ar" ? "تصدير PDF" : "Export PDF"}
