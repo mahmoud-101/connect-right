@@ -15,7 +15,15 @@ import { sanitizeErrorMessage } from "@/lib/errors";
 import type { Database } from "@/integrations/supabase/types";
 import { buildWhatsAppText, openWhatsAppShare } from "@/lib/whatsapp";
 import { track } from "@/lib/analytics";
+import { POST_TEMPLATES, applyTemplate } from "@/lib/templates";
 import { MessageCircle } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 type Tone = "casual" | "professional" | "luxury" | "friendly";
 type Generated = {
@@ -53,8 +61,9 @@ export default function Extract() {
   const [manualTitle, setManualTitle] = useState("");
   const [manualPrice, setManualPrice] = useState("");
   const [manualSpecs, setManualSpecs] = useState("");
-  const [manualImages, setManualImages] = useState("");
   const [manualFiles, setManualFiles] = useState<File[]>([]);
+
+  const [templateId, setTemplateId] = useState<string>("");
 
   const [usageLoading, setUsageLoading] = useState(true);
   const [usageCount, setUsageCount] = useState<number>(0);
@@ -165,12 +174,24 @@ export default function Extract() {
       if ((parsed as any)?.error) throw new Error((parsed as any).error);
       setData(parsed);
       setEditing(false);
-      setDraft({
+       setDraft({
         description: parsed.content?.description ?? "",
         shortPost: parsed.content?.shortPost ?? "",
         hashtags: (parsed.content?.hashtags ?? []).join(" "),
         sellingPoints: (parsed.content?.sellingPoints ?? []).join("\n"),
       });
+
+       if (templateId) {
+         const templated = applyTemplate({
+           templateId,
+           title: parsed.productData?.title ?? null,
+           price: parsed.productData?.price ?? null,
+           description: parsed.content?.description ?? null,
+           sellingPoints: parsed.content?.sellingPoints ?? [],
+           hashtags: parsed.content?.hashtags ?? [],
+         });
+         setDraft((d) => ({ ...d, shortPost: templated || d.shortPost }));
+       }
 
       const imageUrls = parsed.productData?.imageUrls ?? [];
       const generatedImageUrls = parsed.productData?.generatedImageUrls ?? [];
@@ -213,7 +234,7 @@ export default function Extract() {
         setInputMode("manual");
       }
       toast({
-        title: "Error",
+        title: "خطأ",
         description: typeof bodyMsg === "string" && bodyMsg.trim() ? bodyMsg : sanitizeErrorMessage(err),
         variant: "destructive",
       });
@@ -226,10 +247,6 @@ export default function Extract() {
   const generateFromManual = async () => {
     const title = manualTitle.trim();
     const specs = manualSpecs.trim();
-    const imageUrlsFromText = manualImages
-      .split("\n")
-      .map((x) => x.trim())
-      .filter(Boolean);
 
     const uploadFiles = async (userId: string, files: File[]) => {
       if (!files.length) return [] as string[];
@@ -244,10 +261,19 @@ export default function Extract() {
       return uploaded;
     };
 
-    if (!title && !specs && imageUrlsFromText.length === 0 && manualFiles.length === 0) {
+    if (!title) {
       toast({
-        title: "Error",
-        description: "اكتب عنوان أو مواصفات أو على الأقل رابط صورة واحدة.",
+        title: "خطأ",
+        description: "عنوان المنتج مطلوب.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!specs) {
+      toast({
+        title: "خطأ",
+        description: "المواصفات مطلوبة.",
         variant: "destructive",
       });
       return;
@@ -263,8 +289,7 @@ export default function Extract() {
         throw new Error("يرجى تأكيد البريد الإلكتروني قبل الاستخدام.");
       }
 
-      const uploadedUrls = await uploadFiles(userId, manualFiles);
-      const imageUrls = Array.from(new Set([...imageUrlsFromText, ...uploadedUrls]));
+       const imageUrls = Array.from(new Set(await uploadFiles(userId, manualFiles)));
 
       const { data: fnData, error: fnError } = await supabase.functions.invoke("affiliate-webhook", {
         body: {
@@ -301,22 +326,34 @@ export default function Extract() {
 
       setData(next);
       setEditing(false);
-      setDraft({
+       setDraft({
         description: next.content?.description ?? "",
         shortPost: next.content?.shortPost ?? "",
         hashtags: (next.content?.hashtags ?? []).join(" "),
         sellingPoints: (next.content?.sellingPoints ?? []).join("\n"),
       });
 
+       if (templateId) {
+         const templated = applyTemplate({
+           templateId,
+           title: title || null,
+           price: manualPrice.trim() || null,
+           description: next.content?.description ?? null,
+           sellingPoints: next.content?.sellingPoints ?? [],
+           hashtags: next.content?.hashtags ?? [],
+         });
+         setDraft((d) => ({ ...d, shortPost: templated || d.shortPost }));
+       }
+
       if (id) setRowId(id);
       setCoverUrl(imageUrls[0] ?? null);
-      toast({ title: "تم التوليد من البيانات اليدوية" });
+       toast({ title: "تم توليد المحتوى" });
       track("product_extracted", { has_images: imageUrls.length > 0, tone, source: "manual" });
       loadUsage();
     } catch (err) {
       const bodyMsg = (err as any)?.context?.body?.error;
       toast({
-        title: "Error",
+         title: "خطأ",
         description: typeof bodyMsg === "string" && bodyMsg.trim() ? bodyMsg : sanitizeErrorMessage(err),
         variant: "destructive",
       });
@@ -528,8 +565,42 @@ export default function Extract() {
     setManualTitle("");
     setManualPrice("");
     setManualSpecs("");
-    setManualImages("");
     setManualFiles([]);
+    setTemplateId("");
+  };
+
+  const applySelectedTemplate = async (nextTemplateId: string) => {
+    setTemplateId(nextTemplateId);
+    if (!nextTemplateId) return;
+
+    const selling = draft.sellingPoints
+      .split("\n")
+      .map((x) => x.trim())
+      .filter(Boolean);
+    const hashtags = draft.hashtags
+      .split(/\s+/)
+      .map((x) => x.trim())
+      .filter(Boolean);
+
+    const templated = applyTemplate({
+      templateId: nextTemplateId,
+      title: data?.productData?.title ?? manualTitle.trim() ?? null,
+      price: data?.productData?.price ?? manualPrice.trim() ?? null,
+      description: draft.description,
+      sellingPoints: selling,
+      hashtags,
+    });
+
+    if (!templated) return;
+    setDraft((d) => ({ ...d, shortPost: templated }));
+
+    if (rowId) {
+      try {
+        await supabase.from("extracted_products").update({ generated_short_post: templated }).eq("id", rowId);
+      } catch {
+        // no-op
+      }
+    }
   };
 
   return (
@@ -618,7 +689,11 @@ export default function Extract() {
                 {loading ? (stage === "extract" ? t("extracting") : t("generating")) : t("extractTitle")}
               </Button>
             ) : (
-              <Button onClick={generateFromManual} disabled={loading || limitReached} size="lg">
+              <Button
+                onClick={generateFromManual}
+                disabled={loading || limitReached || !manualTitle.trim() || !manualSpecs.trim()}
+                size="lg"
+              >
                 {loading ? t("generating") : "توليد المحتوى من البيانات"}
               </Button>
             )}
@@ -628,16 +703,16 @@ export default function Extract() {
         {inputMode === "manual" && !data ? (
           <Card className="mt-6 p-6">
             <div className="space-y-2">
-              <h2 className="text-lg font-semibold">بديل سريع لروابط الأفلييت (بدون Scraping)</h2>
+              <h2 className="text-lg font-semibold">إدخال يدوي (بدون استخراج من الرابط)</h2>
               <p className="text-sm text-muted-foreground">
-                لو المنصة بتحتاج تسجيل دخول، اكتب بيانات المنتج هنا (من صفحة المنتج داخل المنصة) وسنولّد المحتوى مباشرة.
+                استخدم هذا الخيار لو الرابط لا يعمل أو المنصة تتطلب تسجيل دخول.
               </p>
             </div>
 
             <div className="mt-4 grid gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="manualTitle">عنوان المنتج</Label>
-                <Input id="manualTitle" value={manualTitle} onChange={(e) => setManualTitle(e.target.value)} />
+                <Input id="manualTitle" value={manualTitle} onChange={(e) => setManualTitle(e.target.value)} required />
               </div>
 
               <div className="grid gap-2">
@@ -646,22 +721,12 @@ export default function Extract() {
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="manualSpecs">مواصفات/وصف مختصر</Label>
-                <Textarea id="manualSpecs" value={manualSpecs} onChange={(e) => setManualSpecs(e.target.value)} />
+                <Label htmlFor="manualSpecs">المواصفات</Label>
+                <Textarea id="manualSpecs" value={manualSpecs} onChange={(e) => setManualSpecs(e.target.value)} required />
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="manualImages">روابط الصور (كل رابط في سطر)</Label>
-                <Textarea
-                  id="manualImages"
-                  value={manualImages}
-                  onChange={(e) => setManualImages(e.target.value)}
-                  placeholder="https://...\nhttps://..."
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="manualFiles">رفع صور المنتج (اختياري)</Label>
+                <Label htmlFor="manualFiles">صور المنتج (اختياري)</Label>
                 <Input
                   id="manualFiles"
                   type="file"
@@ -669,7 +734,10 @@ export default function Extract() {
                   multiple
                   onChange={(e) => setManualFiles(Array.from(e.target.files ?? []))}
                 />
-                <div className="text-xs text-muted-foreground">لن نخزن الصور في قاعدة البيانات—سيتم رفعها للتخزين وحفظ الروابط فقط.</div>
+                {manualFiles.length ? (
+                  <div className="text-xs text-muted-foreground">تم اختيار {manualFiles.length} صورة.</div>
+                ) : null}
+                <div className="text-xs text-muted-foreground">سيتم رفع الصور للتخزين وحفظ الروابط فقط.</div>
               </div>
             </div>
           </Card>
@@ -715,7 +783,12 @@ export default function Extract() {
 
             <div className="flex flex-wrap gap-2">
               <Button onClick={saveToLibrary}>{t("save")}</Button>
-              <Button variant="secondary" onClick={shareToWhatsApp} disabled={!data}>
+              <Button
+                variant="secondary"
+                className="bg-whatsapp text-whatsapp-foreground hover:bg-whatsapp/90"
+                onClick={shareToWhatsApp}
+                disabled={!data}
+              >
                 <MessageCircle className="h-4 w-4" />
                 مشاركة واتساب
               </Button>
@@ -755,10 +828,28 @@ export default function Extract() {
             </Card>
             <Card className="p-6">
               <div className="flex items-center justify-between gap-3">
-                <h2 className="text-lg font-semibold">Post</h2>
-                <Button variant="outline" size="sm" disabled={loading} onClick={() => regenerate("short_post")}>
-                  Regenerate
-                </Button>
+                <div className="grid gap-1">
+                  <h2 className="text-lg font-semibold">البوست</h2>
+                  <div className="text-xs text-muted-foreground">اختيار قالب ينسّق البوست تلقائياً بعد التوليد.</div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Select value={templateId} onValueChange={applySelectedTemplate}>
+                    <SelectTrigger className="w-[220px]">
+                      <SelectValue placeholder="اختر قالب" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">بدون قالب</SelectItem>
+                      {POST_TEMPLATES.map((tpl) => (
+                        <SelectItem key={tpl.id} value={tpl.id}>
+                          {tpl.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button variant="outline" size="sm" disabled={loading} onClick={() => regenerate("short_post")}>
+                    إعادة توليد
+                  </Button>
+                </div>
               </div>
               {editing ? (
                 <Textarea

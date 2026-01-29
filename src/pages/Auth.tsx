@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { AppHeader } from "@/components/AppHeader";
 import { useLanguage } from "@/contexts/language";
+import { track } from "@/lib/analytics";
 
 export default function Auth() {
   const { t } = useLanguage();
@@ -37,10 +38,12 @@ export default function Auth() {
         if (error) throw error;
         setSignupPendingVerification(true);
         toast({ title: "تم إنشاء الحساب", description: "افحص بريدك الإلكتروني لتأكيد الحساب" });
+        track("signup", { method: "email" });
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         setSignupPendingVerification(false);
+        track("login", { method: "email" });
         navigate("/extract");
       }
     } catch (err) {

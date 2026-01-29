@@ -57,6 +57,10 @@ All colors MUST be HSL.
     --sidebar-border: 225 18% 16%;
 
     --sidebar-ring: 40 92% 58%;
+
+    /* Brand tokens */
+    --whatsapp: 142 70% 45%;
+    --whatsapp-foreground: 0 0% 100%;
   }
 
   .dark {
