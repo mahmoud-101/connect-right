@@ -27,6 +27,7 @@ export default function Library() {
   const { toast } = useToast();
   const [items, setItems] = useState<any[]>([]);
   const [filter, setFilter] = useState<Filter>("all");
+  const [scope, setScope] = useState<"all" | "saved">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortBy>("recent");
   const [loading, setLoading] = useState(true);
@@ -50,8 +51,8 @@ export default function Library() {
           "id, product_title, cover_image_url, product_image_urls, generated_image_urls, created_at, generated_short_post, generated_description",
         )
         .eq("user_id", userId)
-        .eq("is_saved", true)
         .order("created_at", { ascending: false });
+      if (scope === "saved") q = q.eq("is_saved", true);
       if (since) q = q.gte("created_at", since);
       const { data, error } = await q;
       if (error) throw error;
@@ -66,7 +67,7 @@ export default function Library() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter]);
+  }, [filter, scope]);
 
   const filteredItems = useMemo(() => {
     let res = [...items];
@@ -108,7 +109,13 @@ export default function Library() {
       <main className="mx-auto w-full max-w-6xl px-4 py-8">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-2xl font-semibold">{t("library")}</h1>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Button variant={scope === "all" ? "default" : "secondary"} onClick={() => setScope("all")}>
+              {t("all") ?? "الكل"}
+            </Button>
+            <Button variant={scope === "saved" ? "default" : "secondary"} onClick={() => setScope("saved")}>
+              {t("saved") ?? "المحفوظة"}
+            </Button>
             <Button variant={filter === "all" ? "default" : "secondary"} onClick={() => setFilter("all")}>
               All
             </Button>

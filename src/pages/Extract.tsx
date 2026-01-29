@@ -48,6 +48,12 @@ export default function Extract() {
   const { t } = useLanguage();
   const { toast } = useToast();
 
+  const [lastUrlError, setLastUrlError] = useState<null | {
+    code?: string;
+    message: string;
+    finalUrl?: string;
+  }>(null);
+
   const [url, setUrl] = useState("");
   const [tone, setTone] = useState<Tone>("casual");
   const [loading, setLoading] = useState(false);
@@ -155,6 +161,7 @@ export default function Extract() {
     setRowId(null);
     setCoverUrl(null);
     setInputMode("url");
+    setLastUrlError(null);
 
     try {
       const { data: auth } = await supabase.auth.getUser();
@@ -238,6 +245,7 @@ export default function Extract() {
 
       const bodyMsg = body && typeof body === "object" ? (body as any)?.error : undefined;
       const bodyCode = body && typeof body === "object" ? (body as any)?.code : undefined;
+      const bodyFinalUrl = body && typeof body === "object" ? (body as any)?.finalUrl : undefined;
 
       if (
         bodyCode === "AUTH_REQUIRED_OR_NOT_PRODUCT" ||
@@ -247,9 +255,16 @@ export default function Extract() {
         // Offer a no-scrape fallback that uses the internal webhook endpoint.
         setInputMode("manual");
       }
+
+      const msg = typeof bodyMsg === "string" && bodyMsg.trim() ? bodyMsg : sanitizeErrorMessage(err);
+      setLastUrlError({
+        code: typeof bodyCode === "string" ? bodyCode : undefined,
+        message: msg,
+        finalUrl: typeof bodyFinalUrl === "string" ? bodyFinalUrl : undefined,
+      });
       toast({
         title: "خطأ",
-        description: typeof bodyMsg === "string" && bodyMsg.trim() ? bodyMsg : sanitizeErrorMessage(err),
+        description: msg,
         variant: "destructive",
       });
     } finally {
@@ -660,6 +675,25 @@ export default function Extract() {
 
         <Card className="p-6">
           <div className="grid gap-4">
+            {lastUrlError && inputMode === "manual" ? (
+              <div className="rounded-md border bg-muted/30 p-3 text-sm">
+                <div className="font-medium">{lastUrlError.message}</div>
+                {lastUrlError.finalUrl ? (
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <div className="text-xs text-muted-foreground break-all">{lastUrlError.finalUrl}</div>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => copyToClipboard(lastUrlError.finalUrl!)}
+                    >
+                      نسخ الرابط النهائي
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
             <div className="flex flex-wrap gap-2">
               <Button
                 type="button"
