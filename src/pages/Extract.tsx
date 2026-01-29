@@ -48,6 +48,84 @@ export default function Extract() {
   const { t } = useLanguage();
   const { toast } = useToast();
 
+  const isAbortError = (err: unknown) => {
+    const anyErr = err as any;
+    const name = typeof anyErr?.name === "string" ? anyErr.name : "";
+    const msg = typeof anyErr?.message === "string" ? anyErr.message : "";
+    const lower = msg.toLowerCase();
+    return name === "AbortError" || lower.includes("signal is aborted") || lower.includes("aborted");
+  };
+
+  const parseFunctionError = (err: unknown): { message?: string; code?: string; finalUrl?: string } => {
+    const anyErr = err as any;
+
+    // supabase-js function errors usually have context.body, but shape can vary.
+    const rawBody =
+      anyErr?.context?.body ??
+      anyErr?.context?.response?.body ??
+      anyErr?.cause?.context?.body ??
+      anyErr?.cause?.context?.response?.body;
+
+    let body: any = rawBody;
+    if (typeof rawBody === "string") {
+      try {
+        body = JSON.parse(rawBody);
+      } catch {
+        body = null;
+      }
+    }
+
+    const message = body && typeof body === "object" ? body?.error : undefined;
+    const code = body && typeof body === "object" ? body?.code : undefined;
+    const finalUrl = body && typeof body === "object" ? body?.finalUrl : undefined;
+
+    return {
+      message: typeof message === "string" ? message : undefined,
+      code: typeof code === "string" ? code : undefined,
+      finalUrl: typeof finalUrl === "string" ? finalUrl : undefined,
+    };
+  };
+
+  const getUserIdOrThrow = async () => {
+    const { data, error } = await supabase.auth.getUser();
+    if (error) throw error;
+    const userId = data.user?.id;
+    if (!userId) throw new Error("Unauthorized");
+    return userId;
+  };
+
+  const invokeWithRefresh = async <T,>(
+    fnName: string,
+    body: Record<string, unknown>,
+  ): Promise<{ data: T; refreshed: boolean }> => {
+    let refreshed = false;
+
+    const tryInvoke = async () => {
+      const res = await supabase.functions.invoke(fnName, { body });
+      if (res.error) throw res.error;
+      return res.data as T;
+    };
+
+    try {
+      const data = await tryInvoke();
+      return { data, refreshed };
+    } catch (err) {
+      // If token is stale/invalid, refresh once and retry.
+      const msg = (err as any)?.message ? String((err as any).message).toLowerCase() : "";
+      const status = (err as any)?.context?.status ?? (err as any)?.status;
+      const looksUnauthorized = status === 401 || msg.includes("jwt") || msg.includes("unauthorized");
+
+      if (!looksUnauthorized) throw err;
+
+      const { error: refreshError } = await supabase.auth.refreshSession();
+      if (refreshError) throw err;
+      refreshed = true;
+
+      const data = await tryInvoke();
+      return { data, refreshed };
+    }
+  };
+
   const [lastUrlError, setLastUrlError] = useState<null | {
     code?: string;
     message: string;
@@ -164,15 +242,14 @@ export default function Extract() {
     setLastUrlError(null);
 
     try {
-      const { data: auth } = await supabase.auth.getUser();
-      const userId = auth.user?.id;
-      if (!userId) throw new Error("Unauthorized");
+      const userId = await getUserIdOrThrow();
 
       setStage("generate");
-      const { data: fnData, error: fnError } = await supabase.functions.invoke("generate-product-content", {
-        body: { url, tone, section: "all" },
+      const { data: fnData } = await invokeWithRefresh<Generated & { error?: string }>("generate-product-content", {
+        url,
+        tone,
+        section: "all",
       });
-      if (fnError) throw fnError;
 
       const parsed = fnData as Generated & { error?: string };
       if ((parsed as any)?.error) throw new Error((parsed as any).error);
@@ -228,20 +305,16 @@ export default function Extract() {
       track("product_extracted", { has_images: (imageUrls?.length ?? 0) > 0, tone });
       loadUsage();
     } catch (err) {
-      // Supabase functions errors may contain a JSON body (object OR string) with a user-friendly message.
-      const rawBody = (err as any)?.context?.body;
-      let body: any = rawBody;
-      if (typeof rawBody === "string") {
-        try {
-          body = JSON.parse(rawBody);
-        } catch {
-          body = null;
-        }
+      if (isAbortError(err)) {
+        // Navigation/unmount or cancelled request — don't treat as a user-facing failure.
+        return;
       }
 
-      const bodyMsg = body && typeof body === "object" ? (body as any)?.error : undefined;
-      const bodyCode = body && typeof body === "object" ? (body as any)?.code : undefined;
-      const bodyFinalUrl = body && typeof body === "object" ? (body as any)?.finalUrl : undefined;
+      // Supabase functions errors may contain a JSON body (object OR string) with a user-friendly message.
+      const parsedErr = parseFunctionError(err);
+      const bodyMsg = parsedErr.message;
+      const bodyCode = parsedErr.code;
+      const bodyFinalUrl = parsedErr.finalUrl;
 
       if (
         bodyCode === "AUTH_REQUIRED_OR_NOT_PRODUCT" ||
@@ -307,9 +380,7 @@ export default function Extract() {
     setLoading(true);
     setStage("generate");
     try {
-      const { data: auth } = await supabase.auth.getUser();
-      const userId = auth.user?.id;
-      if (!userId) throw new Error("Unauthorized");
+      const userId = await getUserIdOrThrow();
 
        const imageUrls = Array.from(new Set(await uploadFiles(userId, manualFiles)));
 
@@ -373,7 +444,8 @@ export default function Extract() {
       track("product_extracted", { has_images: imageUrls.length > 0, tone, source: "manual" });
       loadUsage();
     } catch (err) {
-      const bodyMsg = (err as any)?.context?.body?.error;
+      if (isAbortError(err)) return;
+      const bodyMsg = parseFunctionError(err).message;
       toast({
          title: "خطأ",
         description: typeof bodyMsg === "string" && bodyMsg.trim() ? bodyMsg : sanitizeErrorMessage(err),
@@ -395,10 +467,11 @@ export default function Extract() {
     setLoading(true);
     setStage("generate");
     try {
-      const { data: fnData, error: fnError } = await supabase.functions.invoke("generate-product-content", {
-        body: { url, tone, section: "images" },
+      const { data: fnData } = await invokeWithRefresh<Generated & { error?: string }>("generate-product-content", {
+        url,
+        tone,
+        section: "images",
       });
-      if (fnError) throw fnError;
       const parsed = fnData as Generated & { error?: string };
       if ((parsed as any)?.error) throw new Error((parsed as any).error);
 
@@ -425,7 +498,8 @@ export default function Extract() {
 
       toast({ title: "Images generated" });
     } catch (err) {
-      const bodyMsg = (err as any)?.context?.body?.error;
+      if (isAbortError(err)) return;
+      const bodyMsg = parseFunctionError(err).message;
       toast({
         title: "Error",
         description: typeof bodyMsg === "string" && bodyMsg.trim() ? bodyMsg : sanitizeErrorMessage(err),
@@ -454,10 +528,11 @@ export default function Extract() {
     setLoading(true);
     setStage("generate");
     try {
-      const { data: fnData, error: fnError } = await supabase.functions.invoke("generate-product-content", {
-        body: { url, tone, section },
+      const { data: fnData } = await invokeWithRefresh<any>("generate-product-content", {
+        url,
+        tone,
+        section,
       });
-      if (fnError) throw fnError;
       const parsed = fnData as any;
       if (parsed?.error) throw new Error(parsed.error);
 
@@ -475,7 +550,8 @@ export default function Extract() {
 
       toast({ title: "Updated" });
     } catch (err) {
-      const bodyMsg = (err as any)?.context?.body?.error;
+      if (isAbortError(err)) return;
+      const bodyMsg = parseFunctionError(err).message;
       toast({
         title: "Error",
         description: typeof bodyMsg === "string" && bodyMsg.trim() ? bodyMsg : sanitizeErrorMessage(err),
