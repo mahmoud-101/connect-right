@@ -63,7 +63,8 @@ export default function Extract() {
   const [manualSpecs, setManualSpecs] = useState("");
   const [manualFiles, setManualFiles] = useState<File[]>([]);
 
-  const [templateId, setTemplateId] = useState<string>("");
+  // Radix Select disallows SelectItem value="". Use a sentinel.
+  const [templateId, setTemplateId] = useState<string>("none");
 
   const [usageLoading, setUsageLoading] = useState(true);
   const [usageCount, setUsageCount] = useState<number>(0);
@@ -181,7 +182,7 @@ export default function Extract() {
         sellingPoints: (parsed.content?.sellingPoints ?? []).join("\n"),
       });
 
-       if (templateId) {
+        if (templateId !== "none") {
          const templated = applyTemplate({
            templateId,
            title: parsed.productData?.title ?? null,
@@ -346,7 +347,7 @@ export default function Extract() {
         sellingPoints: (next.content?.sellingPoints ?? []).join("\n"),
       });
 
-       if (templateId) {
+        if (templateId !== "none") {
          const templated = applyTemplate({
            templateId,
            title: title || null,
@@ -579,12 +580,12 @@ export default function Extract() {
     setManualPrice("");
     setManualSpecs("");
     setManualFiles([]);
-    setTemplateId("");
+    setTemplateId("none");
   };
 
   const applySelectedTemplate = async (nextTemplateId: string) => {
     setTemplateId(nextTemplateId);
-    if (!nextTemplateId) return;
+    if (nextTemplateId === "none") return;
 
     const selling = draft.sellingPoints
       .split("\n")
@@ -851,7 +852,7 @@ export default function Extract() {
                       <SelectValue placeholder="اختر قالب" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">بدون قالب</SelectItem>
+                      <SelectItem value="none">بدون قالب</SelectItem>
                       {POST_TEMPLATES.map((tpl) => (
                         <SelectItem key={tpl.id} value={tpl.id}>
                           {tpl.name}
