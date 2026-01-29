@@ -7,7 +7,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { AppHeader } from "@/components/AppHeader";
 import { useLanguage } from "@/contexts/language";
 import { copyToClipboard } from "@/lib/copy";
 import { exportAsPdf } from "@/lib/pdf";
@@ -704,8 +703,6 @@ export default function Extract() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <AppHeader />
       <main className="mx-auto w-full max-w-3xl px-4 py-8">
         <div className="mb-6">
           <h1 className="text-2xl font-semibold">{t("extractTitle")}</h1>
@@ -1025,6 +1022,5 @@ export default function Extract() {
           </div>
         )}
       </main>
-    </div>
   );
 }

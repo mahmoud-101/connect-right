@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { AppHeader } from "@/components/AppHeader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -246,8 +245,6 @@ export default function LibraryItem() {
   }, [item]);
 
   return (
-    <div className="min-h-screen bg-background">
-      <AppHeader />
       <main className="mx-auto w-full max-w-5xl px-4 py-8">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -387,6 +384,5 @@ export default function LibraryItem() {
           </div>
         )}
       </main>
-    </div>
   );
 }

@@ -13,6 +13,11 @@ import LibraryItem from "./pages/LibraryItem";
 import ContentStudio from "./pages/ContentStudio";
 import { LanguageProvider } from "./contexts/language";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { AppLayout } from "./components/AppLayout";
+import ImageOptimizer from "./pages/ImageOptimizer";
+import Bulk from "./pages/Bulk";
+import Export from "./pages/Export";
+import Spy from "./pages/Spy";
 
 const queryClient = new QueryClient();
 
@@ -28,46 +33,23 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
 
             <Route
-              path="/extract"
               element={
                 <ProtectedRoute>
-                  <Extract />
+                  <AppLayout />
                 </ProtectedRoute>
               }
-            />
-            <Route
-              path="/library"
-              element={
-                <ProtectedRoute>
-                  <Library />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/library/:id"
-              element={
-                <ProtectedRoute>
-                  <LibraryItem />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/settings"
-              element={
-                <ProtectedRoute>
-                  <Settings />
-                </ProtectedRoute>
-              }
-            />
+            >
+              <Route path="/extract" element={<Extract />} />
+              <Route path="/optimizer" element={<ImageOptimizer />} />
+              <Route path="/templates" element={<ContentStudio />} />
+              <Route path="/spy" element={<Spy />} />
+              <Route path="/bulk" element={<Bulk />} />
+              <Route path="/export" element={<Export />} />
 
-            <Route
-              path="/studio"
-              element={
-                <ProtectedRoute>
-                  <ContentStudio />
-                </ProtectedRoute>
-              }
-            />
+              <Route path="/library" element={<Library />} />
+              <Route path="/library/:id" element={<LibraryItem />} />
+              <Route path="/settings" element={<Settings />} />
+            </Route>
 
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
