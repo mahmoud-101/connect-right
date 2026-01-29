@@ -168,10 +168,6 @@ export default function Extract() {
       const userId = auth.user?.id;
       if (!userId) throw new Error("Unauthorized");
 
-      if (!auth.user?.email_confirmed_at) {
-        throw new Error("يرجى تأكيد البريد الإلكتروني قبل الاستخدام.");
-      }
-
       setStage("generate");
       const { data: fnData, error: fnError } = await supabase.functions.invoke("generate-product-content", {
         body: { url, tone, section: "all" },
@@ -314,9 +310,6 @@ export default function Extract() {
       const { data: auth } = await supabase.auth.getUser();
       const userId = auth.user?.id;
       if (!userId) throw new Error("Unauthorized");
-      if (!auth.user?.email_confirmed_at) {
-        throw new Error("يرجى تأكيد البريد الإلكتروني قبل الاستخدام.");
-      }
 
        const imageUrls = Array.from(new Set(await uploadFiles(userId, manualFiles)));
 
