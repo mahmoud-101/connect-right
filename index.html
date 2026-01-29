@@ -8,6 +8,34 @@
     <meta name="description" content="Lovable Generated Project" />
     <meta name="author" content="Lovable" />
 
+    <!-- Google Analytics (optional): set content to your Measurement ID e.g. G-XXXXXXX -->
+    <meta name="ga-measurement-id" content="" />
+
+    <script>
+      (function () {
+        try {
+          var meta = document.querySelector('meta[name="ga-measurement-id"]');
+          var id = meta && meta.getAttribute("content");
+          if (!id) return;
+
+          var s1 = document.createElement("script");
+          s1.async = true;
+          s1.src = "https://www.googletagmanager.com/gtag/js?id=" + encodeURIComponent(id);
+          document.head.appendChild(s1);
+
+          window.dataLayer = window.dataLayer || [];
+          function gtag() {
+            window.dataLayer.push(arguments);
+          }
+          window.gtag = gtag;
+          gtag("js", new Date());
+          gtag("config", id, { anonymize_ip: true });
+        } catch (e) {
+          // no-op
+        }
+      })();
+    </script>
+
     <!-- TODO: Update og:title to match your application name -->
     <meta property="og:title" content="Lovable App" />
     <meta property="og:description" content="Lovable Generated Project" />
