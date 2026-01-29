@@ -10,6 +10,7 @@ import Extract from "./pages/Extract";
 import Library from "./pages/Library";
 import Settings from "./pages/Settings";
 import LibraryItem from "./pages/LibraryItem";
+import ContentStudio from "./pages/ContentStudio";
 import { LanguageProvider } from "./contexts/language";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
@@ -55,6 +56,15 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Settings />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/studio"
+              element={
+                <ProtectedRoute>
+                  <ContentStudio />
                 </ProtectedRoute>
               }
             />
