@@ -10,7 +10,11 @@ export function AppHeader() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const isApp = location.pathname.startsWith("/extract") || location.pathname.startsWith("/library") || location.pathname.startsWith("/settings");
+  const isApp =
+    location.pathname.startsWith("/extract") ||
+    location.pathname.startsWith("/library") ||
+    location.pathname.startsWith("/settings") ||
+    location.pathname.startsWith("/studio");
 
   const signOut = async () => {
     await supabase.auth.signOut();
@@ -35,6 +39,9 @@ export function AppHeader() {
             <>
               <Button variant="ghost" asChild>
                 <Link to="/extract">/extract</Link>
+              </Button>
+              <Button variant="ghost" asChild>
+                <Link to="/studio">Content Studio</Link>
               </Button>
               <Button variant="ghost" asChild>
                 <Link to="/library">{t("library")}</Link>
