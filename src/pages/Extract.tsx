@@ -224,10 +224,19 @@ export default function Extract() {
       track("product_extracted", { has_images: (imageUrls?.length ?? 0) > 0, tone });
       loadUsage();
     } catch (err) {
-      // Supabase functions errors may contain a JSON body with a user-friendly message.
-      const body = (err as any)?.context?.body;
-      const bodyMsg = typeof body === "object" ? (body as any)?.error : undefined;
-      const bodyCode = typeof body === "object" ? (body as any)?.code : undefined;
+      // Supabase functions errors may contain a JSON body (object OR string) with a user-friendly message.
+      const rawBody = (err as any)?.context?.body;
+      let body: any = rawBody;
+      if (typeof rawBody === "string") {
+        try {
+          body = JSON.parse(rawBody);
+        } catch {
+          body = null;
+        }
+      }
+
+      const bodyMsg = body && typeof body === "object" ? (body as any)?.error : undefined;
+      const bodyCode = body && typeof body === "object" ? (body as any)?.code : undefined;
 
       if (bodyCode === "AUTH_REQUIRED_OR_NOT_PRODUCT") {
         // Offer a no-scrape fallback that uses the internal webhook endpoint.
