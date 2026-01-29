@@ -62,12 +62,21 @@ const dict: Dictionary = {
 
   library: { ar: "المكتبة", en: "Library" },
   settings: { ar: "الإعدادات", en: "Settings" },
+
+  // Library UI
+  search: { ar: "بحث", en: "Search" },
+  sort: { ar: "فرز", en: "Sort" },
+  sortRecent: { ar: "الأحدث", en: "Recent" },
+  sortOldest: { ar: "الأقدم", en: "Oldest" },
+  sortTitle: { ar: "حسب العنوان", en: "Title" },
+  open: { ar: "فتح", en: "Open" },
 };
 
 type LanguageContextValue = {
   lang: AppLanguage;
   setLang: (l: AppLanguage) => void;
-  t: (key: keyof typeof dict) => string;
+  // Allow safe runtime fallback for keys coming from dynamic UI or older code.
+  t: (key: keyof typeof dict | string) => string;
   dir: "rtl" | "ltr";
 };
 
@@ -92,7 +101,10 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
       lang,
       setLang,
       dir,
-      t: (key) => dict[key][lang],
+      t: (key) => {
+        const entry = (dict as Record<string, { ar: string; en: string } | undefined>)[String(key)];
+        return entry?.[lang] ?? String(key);
+      },
     }),
     [lang, dir],
   );
