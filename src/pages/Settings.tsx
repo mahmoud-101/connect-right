@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/language";
@@ -59,32 +60,41 @@ export default function Settings() {
     <div className="min-h-screen bg-background">
       <AppHeader />
       <main className="mx-auto w-full max-w-2xl px-4 py-8">
-        <h1 className="mb-6 text-2xl font-semibold">Settings</h1>
+        <h1 className="mb-6 text-2xl font-semibold">{lang === "ar" ? "الإعدادات" : "Settings"}</h1>
 
         <div className="grid gap-4">
           <Card className="p-6">
             <div className="grid gap-3">
-              <div className="text-sm font-semibold">Account</div>
+              <div className="text-sm font-semibold">{lang === "ar" ? "الحساب" : "Account"}</div>
               {loading ? (
-                <div className="text-sm text-muted-foreground">Loading...</div>
+                <div className="text-sm text-muted-foreground">{lang === "ar" ? "جارٍ التحميل..." : "Loading..."}</div>
               ) : (
                 <>
-                  <div className="rounded-md border bg-muted/30 p-3 text-sm">
-                    <div className="font-medium">Email verification</div>
-                    <div className="mt-1 text-muted-foreground">
-                      {emailVerified === null
-                        ? "—"
-                        : emailVerified
-                          ? "Verified"
-                          : "Not verified yet. Please check your inbox."}
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border bg-muted/30 p-3 text-sm">
+                    <div className="grid gap-1">
+                      <div className="font-medium">{lang === "ar" ? "حالة البريد الإلكتروني" : "Email verification"}</div>
+                      <div className="text-muted-foreground">
+                        {emailVerified === null
+                          ? "—"
+                          : emailVerified
+                            ? lang === "ar"
+                              ? "تم التحقق"
+                              : "Verified"
+                            : lang === "ar"
+                              ? "غير مُتحقق بعد"
+                              : "Not verified"}
+                      </div>
                     </div>
+                    <Badge variant={emailVerified ? "default" : "secondary"}>
+                      {emailVerified ? (lang === "ar" ? "مؤكد" : "Verified") : lang === "ar" ? "غير مؤكد" : "Unverified"}
+                    </Badge>
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="fullName">Full name</Label>
+                    <Label htmlFor="fullName">{lang === "ar" ? "الاسم" : "Full name"}</Label>
                     <Input id="fullName" value={fullName} onChange={(e) => setFullName(e.target.value)} />
                   </div>
                   <div className="grid gap-2">
-                    <Label>Language</Label>
+                    <Label>{lang === "ar" ? "اللغة" : "Language"}</Label>
                     <div className="flex gap-2">
                       <Button variant={lang === "ar" ? "default" : "secondary"} onClick={() => setLang("ar")}>
                         العربية
@@ -94,18 +104,18 @@ export default function Settings() {
                       </Button>
                     </div>
                   </div>
-                  <Button onClick={save}>Save</Button>
+                  <Button onClick={save}>{lang === "ar" ? "حفظ" : "Save"}</Button>
                 </>
               )}
             </div>
           </Card>
 
           <Card className="p-6">
-            <div className="text-sm font-semibold">Plan</div>
-            <div className="mt-2 text-sm text-muted-foreground">Current: {plan}</div>
+            <div className="text-sm font-semibold">{lang === "ar" ? "الخطة" : "Plan"}</div>
+            <div className="mt-2 text-sm text-muted-foreground">{lang === "ar" ? "الحالية" : "Current"}: {plan}</div>
             <div className="mt-3 flex gap-2">
               <Button variant="secondary" disabled>
-                Upgrade (soon)
+                {lang === "ar" ? "ترقية (قريباً)" : "Upgrade (soon)"}
               </Button>
             </div>
           </Card>

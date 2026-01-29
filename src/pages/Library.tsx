@@ -16,6 +16,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/language";
 import { formatDistanceToNow } from "date-fns";
 import { sanitizeErrorMessage } from "@/lib/errors";
+import { Skeleton } from "@/components/ui/skeleton";
+import { SearchX } from "lucide-react";
 
 type Filter = "all" | "7" | "30";
 type SortBy = "recent" | "oldest" | "title";
@@ -44,7 +46,9 @@ export default function Library() {
 
       let q = supabase
         .from("extracted_products")
-        .select("id, product_title, cover_image_url, product_image_urls, generated_image_urls, created_at, generated_short_post")
+        .select(
+          "id, product_title, cover_image_url, product_image_urls, generated_image_urls, created_at, generated_short_post, generated_description",
+        )
         .eq("user_id", userId)
         .eq("is_saved", true)
         .order("created_at", { ascending: false });
@@ -69,7 +73,12 @@ export default function Library() {
 
     const q = searchQuery.trim().toLowerCase();
     if (q) {
-      res = res.filter((it) => (it.product_title ?? "").toLowerCase().includes(q));
+      res = res.filter((it) => {
+        const title = String(it.product_title ?? "").toLowerCase();
+        const desc = String(it.generated_description ?? "").toLowerCase();
+        const post = String(it.generated_short_post ?? "").toLowerCase();
+        return title.includes(q) || desc.includes(q) || post.includes(q);
+      });
     }
 
     if (sortBy === "title") {
@@ -131,13 +140,39 @@ export default function Library() {
         </div>
 
         {loading ? (
-          <div className="text-sm text-muted-foreground">Loading...</div>
-        ) : filteredItems.length === 0 ? (
-          <div className="text-sm text-muted-foreground">No saved products yet.</div>
-        ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredItems.map((it) => (
-              <Card key={it.id} className="p-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Card key={i} className="p-4">
+                <Skeleton className="mb-3 h-40 w-full" />
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="mt-2 h-3 w-1/2" />
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <Skeleton className="h-9 w-full" />
+                  <Skeleton className="h-9 w-full" />
+                </div>
+              </Card>
+            ))}
+          </div>
+        ) : filteredItems.length === 0 ? (
+          <Card className="p-6">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 rounded-md border bg-muted/30 p-2">
+                <SearchX className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="text-sm font-semibold">لا توجد نتائج</div>
+                <div className="mt-1 text-sm text-muted-foreground">
+                  جرّب/ي كلمات مختلفة، أو احفظ/ي منتجات من صفحة الاستخراج أولاً.
+                </div>
+              </div>
+            </div>
+          </Card>
+        ) : (
+          <div className="grid gap-3">
+            <div className="text-sm text-muted-foreground">عدد النتائج: {filteredItems.length}</div>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {filteredItems.map((it) => (
+                <Card key={it.id} className="p-4">
                 {(it.cover_image_url || it.generated_image_urls?.[0] || it.product_image_urls?.[0]) && (
                   <img
                     src={it.cover_image_url ?? it.generated_image_urls?.[0] ?? it.product_image_urls?.[0]}
@@ -160,8 +195,9 @@ export default function Library() {
                     Delete
                   </Button>
                 </div>
-              </Card>
-            ))}
+                </Card>
+              ))}
+            </div>
           </div>
         )}
       </main>

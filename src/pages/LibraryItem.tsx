@@ -258,7 +258,12 @@ export default function LibraryItem() {
             <Button variant="secondary" onClick={() => nav("/library")}>
               {lang === "ar" ? "رجوع" : "Back"}
             </Button>
-            <Button variant="secondary" onClick={shareToWhatsApp} disabled={loading || !item}>
+            <Button
+              variant="secondary"
+              className="bg-whatsapp text-whatsapp-foreground hover:bg-whatsapp/90"
+              onClick={shareToWhatsApp}
+              disabled={loading || !item}
+            >
               <MessageCircle className="h-4 w-4" />
               {lang === "ar" ? "مشاركة واتساب" : "WhatsApp"}
             </Button>
