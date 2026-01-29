@@ -193,7 +193,8 @@ export default function Extract() {
 
       const { count } = await supabase
         .from("usage_logs")
-        .select("id", { count: "exact", head: true })
+        // Avoid HEAD requests (can be aborted by some browsers/webviews)
+        .select("id", { count: "exact" })
         .eq("user_id", userId)
         .eq("action", "extract")
         .gte("created_at", monthStart.toISOString());
@@ -582,7 +583,8 @@ export default function Extract() {
 
       const { count } = await supabase
         .from("extracted_products")
-        .select("id", { count: "exact", head: true })
+        // Avoid HEAD requests (can be aborted by some browsers/webviews)
+        .select("id", { count: "exact" })
         .eq("user_id", userId)
         .eq("is_saved", true);
 
