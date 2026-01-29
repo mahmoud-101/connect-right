@@ -154,6 +154,24 @@ function looksLikeAuthOrLanding(html: string, url: string): boolean {
   const host = getHost(url);
   const lower = (html || "").toLowerCase();
 
+  // Amazon product pages include "Sign in" in the header/footer even when the page is valid.
+  // So we only treat Amazon as gated when we see strong auth/captcha signals.
+  const isAmazon = /(^|\.)amazon\.[a-z.]+$/.test(host);
+  if (isAmazon) {
+    const strongAmazonAuthSignals = [
+      "validatecaptcha",
+      "robot check",
+      "enter the characters you see",
+      "type the characters you see",
+      "/ap/signin",
+      "authportal",
+      // Arabic variants
+      "أدخل الأحرف",
+      "تحقق أنك لست روبوت",
+    ];
+    return strongAmazonAuthSignals.some((s) => lower.includes(s.toLowerCase()));
+  }
+
   // Generic auth wall / login page signals
   const authSignals = [
     "login",
@@ -191,6 +209,20 @@ function looksLikeAuthOrLanding(html: string, url: string): boolean {
   }
 
   return false;
+}
+
+function looksLikeAmazonCaptcha(html: string): boolean {
+  const lower = (html || "").toLowerCase();
+  return [
+    "validatecaptcha",
+    "robot check",
+    "enter the characters you see",
+    "type the characters you see",
+    "captcha",
+    // Arabic variants
+    "أدخل الأحرف",
+    "تحقق أنك لست روبوت",
+  ].some((s) => lower.includes(s.toLowerCase()));
 }
 
 function parseDataUrl(dataUrl: string): { bytes: Uint8Array; contentType: string; ext: string } {
@@ -385,6 +417,24 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Amazon: if direct fetch returns a CAPTCHA/robot-check HTML, force a Firecrawl scrape attempt
+    // even if the HTML length looks "usable".
+    const host = getHost(finalUrl);
+    const isAmazonHost = /(^|\.)amazon\.[a-z.]+$/.test(host);
+    if (isAmazonHost && looksLikeAmazonCaptcha(html)) {
+      const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
+      if (FIRECRAWL_API_KEY) {
+        try {
+          const fc = await firecrawlScrape({ apiKey: FIRECRAWL_API_KEY, url: finalUrl });
+          if (fc.html && isHtmlUsable(fc.html) && !looksLikeAmazonCaptcha(fc.html)) {
+            html = fc.html;
+          }
+        } catch (e) {
+          console.error("Amazon Firecrawl retry failed", e);
+        }
+      }
+    }
+
     let productTitle = cleanText(pickTitle(html)) || "";
     let productPrice = cleanText(pickPrice(html)) || "";
     let productSpecs = cleanText(pickMeta(html, "description") || pickMeta(html, "og:description")) || "";
@@ -392,7 +442,32 @@ Deno.serve(async (req) => {
 
     // If we're seeing a login wall or a public landing page instead of an actual product,
     // stop early to avoid generating misleading content.
+    if (isAmazonHost && looksLikeAmazonCaptcha(html)) {
+      return new Response(
+        JSON.stringify({
+          error:
+            "أمازون غالباً عامل Robot Check/CAPTCHA على السيرفر، فمش قادرين نوصل لصفحة المنتج دلوقتي.\n\nالحل السريع: استخدم (إدخال يدوي) واكتب عنوان/مواصفات المنتج وارفع الصور لو موجودة.\nولو تقدر: جرّب رابط تاني لنفس المنتج أو افتحه من متصفح عادي وانسخ الرابط النهائي بدون تتبّع.",
+          code: "AMAZON_CAPTCHA",
+          finalUrl,
+        }),
+        { status: 422, headers: { ...cors, "Content-Type": "application/json" } },
+      );
+    }
+
     if (looksLikeAuthOrLanding(html, finalUrl)) {
+      // If the destination is Amazon and we landed on signin/auth portal, it is not an affiliate issue.
+      if (isAmazonHost) {
+        return new Response(
+          JSON.stringify({
+            error:
+              "السيرفر وصل لصفحة تسجيل دخول/بوابة حماية في أمازون بدل صفحة المنتج (ده بيحصل بسبب حماية/كوكيز/منطقة).\n\nالحل السريع: استخدم (إدخال يدوي).\nبديل: جرّب تفتح الرابط في متصفحك، وبعد ما صفحة المنتج تفتح انسخ الرابط النهائي (بدون تتبّع) وجربه هنا.",
+            code: "AMAZON_SIGNIN_OR_BLOCKED",
+            finalUrl,
+          }),
+          { status: 422, headers: { ...cors, "Content-Type": "application/json" } },
+        );
+      }
+
       return new Response(
         JSON.stringify({
           error:

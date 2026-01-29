@@ -238,7 +238,11 @@ export default function Extract() {
       const bodyMsg = body && typeof body === "object" ? (body as any)?.error : undefined;
       const bodyCode = body && typeof body === "object" ? (body as any)?.code : undefined;
 
-      if (bodyCode === "AUTH_REQUIRED_OR_NOT_PRODUCT") {
+      if (
+        bodyCode === "AUTH_REQUIRED_OR_NOT_PRODUCT" ||
+        bodyCode === "AMAZON_CAPTCHA" ||
+        bodyCode === "AMAZON_SIGNIN_OR_BLOCKED"
+      ) {
         // Offer a no-scrape fallback that uses the internal webhook endpoint.
         setInputMode("manual");
       }
