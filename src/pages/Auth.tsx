@@ -27,7 +27,7 @@ export default function Auth() {
     try {
       if (mode === "signup") {
         setSignupPendingVerification(false);
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -36,9 +36,16 @@ export default function Auth() {
           },
         });
         if (error) throw error;
-        setSignupPendingVerification(true);
-        toast({ title: "تم إنشاء الحساب", description: "افحص بريدك الإلكتروني لتأكيد الحساب" });
         track("signup", { method: "email" });
+
+        // If auto-confirm is enabled, Supabase returns a session and we can proceed immediately.
+        if (data?.session) {
+          toast({ title: "تم إنشاء الحساب", description: "تم تسجيل الدخول بنجاح" });
+          navigate("/extract");
+        } else {
+          setSignupPendingVerification(true);
+          toast({ title: "تم إنشاء الحساب", description: "افحص بريدك الإلكتروني لتأكيد الحساب" });
+        }
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
