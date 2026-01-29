@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { AppHeader } from "@/components/AppHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,8 +56,6 @@ export default function Settings() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <AppHeader />
       <main className="mx-auto w-full max-w-2xl px-4 py-8">
         <h1 className="mb-6 text-2xl font-semibold">{lang === "ar" ? "الإعدادات" : "Settings"}</h1>
 
@@ -121,6 +118,5 @@ export default function Settings() {
           </Card>
         </div>
       </main>
-    </div>
   );
 }
