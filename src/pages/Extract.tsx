@@ -16,6 +16,7 @@ import { buildWhatsAppText, openWhatsAppShare } from "@/lib/whatsapp";
 import { track } from "@/lib/analytics";
 import { POST_TEMPLATES, applyTemplate } from "@/lib/templates";
 import { MessageCircle } from "lucide-react";
+import { ImportProductFromUrlDialog } from "@/components/ImportProductFromUrlDialog";
 import {
   Select,
   SelectContent,
@@ -790,6 +791,11 @@ export default function Extract() {
             <div className="grid gap-2">
               <Label htmlFor="url">URL</Label>
               <Input id="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://..." disabled={inputMode === "manual"} />
+              {inputMode === "url" ? (
+                <div className="flex flex-wrap gap-2">
+                  <ImportProductFromUrlDialog tone={tone} />
+                </div>
+              ) : null}
             </div>
 
             <div className="grid gap-2">
