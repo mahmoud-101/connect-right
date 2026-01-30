@@ -48,6 +48,25 @@ type Extracted = {
   cached?: boolean;
 };
 
+function parseFunctionError(err: unknown): { message?: string; code?: string } {
+  const anyErr = err as any;
+  const rawBody = anyErr?.context?.body ?? anyErr?.context?.response?.body ?? anyErr?.cause?.context?.body;
+  let body: any = rawBody;
+  if (typeof rawBody === "string") {
+    try {
+      body = JSON.parse(rawBody);
+    } catch {
+      body = null;
+    }
+  }
+  const message = body && typeof body === "object" ? body?.error : undefined;
+  const code = body && typeof body === "object" ? body?.code : undefined;
+  return {
+    message: typeof message === "string" ? message : undefined,
+    code: typeof code === "string" ? code : undefined,
+  };
+}
+
 function normalizeUrl(raw: string) {
   const u = raw.trim();
   if (!u) return "";
@@ -124,7 +143,10 @@ export function ImportProductFromUrlDialog({ tone }: { tone: string }) {
       track("import_product_extract_success", { cached: Boolean(payload?.cached) });
     } catch (err) {
       track("import_product_extract_failed", { message: sanitizeErrorMessage(err) });
-      toast({ title: "خطأ", description: sanitizeErrorMessage(err), variant: "destructive" });
+      const parsed = parseFunctionError(err);
+      const msg = parsed.message || sanitizeErrorMessage(err);
+      const suffix = parsed.code ? ` (${parsed.code})` : "";
+      toast({ title: "خطأ", description: `${msg}${suffix}`, variant: "destructive" });
     } finally {
       setLoading(false);
     }
