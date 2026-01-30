@@ -5,3 +5,9 @@ verify_jwt = false
 
 [functions.affiliate-webhook]
 verify_jwt = false
+
+[functions.fb-spy-improve]
+verify_jwt = false
+
+[functions.firecrawl-extract-product]
+verify_jwt = false
