@@ -17,9 +17,45 @@ export default function Spy() {
   const [pastedText, setPastedText] = useState("");
   const [improved, setImproved] = useState("");
 
+  const parseFunctionError = (err: unknown): { message?: string; code?: string; status?: number } => {
+    const anyErr = err as any;
+    const status =
+      typeof anyErr?.context?.status === "number"
+        ? anyErr.context.status
+        : typeof anyErr?.status === "number"
+          ? anyErr.status
+          : undefined;
+
+    const rawBody = anyErr?.context?.body ?? anyErr?.context?.response?.body ?? anyErr?.cause?.context?.body;
+    let body: any = rawBody;
+    if (typeof rawBody === "string") {
+      try {
+        body = JSON.parse(rawBody);
+      } catch {
+        body = null;
+      }
+    }
+    const message = body && typeof body === "object" ? body?.error : undefined;
+    const code = body && typeof body === "object" ? body?.code : undefined;
+    return {
+      status,
+      message: typeof message === "string" ? message : undefined,
+      code: typeof code === "string" ? code : undefined,
+    };
+  };
+
   const looksLikeBlockedScrape = (err: unknown) => {
-    const msg = sanitizeErrorMessage(err).toLowerCase();
-    return msg.includes("blocklisted") || msg.includes("403") || msg.includes("failed to scrape");
+    const parsed = parseFunctionError(err);
+    const msg = (parsed.message || (err instanceof Error ? err.message : "") || "").toLowerCase();
+    // Firecrawl-specific + our backend wording
+    return (
+      parsed.status === 403 ||
+      msg.includes("blocklisted") ||
+      msg.includes("failed to scrape") ||
+      msg.includes("forbidden") ||
+      msg.includes("403") ||
+      msg.includes("محجوب")
+    );
   };
 
   const run = async () => {
@@ -50,7 +86,12 @@ export default function Spy() {
         return;
       }
       track("spy_failed", { mode });
-      toast({ title: "خطأ", description: sanitizeErrorMessage(err), variant: "destructive" });
+      const parsed = parseFunctionError(err);
+      toast({
+        title: "خطأ",
+        description: parsed.message || sanitizeErrorMessage(err),
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
