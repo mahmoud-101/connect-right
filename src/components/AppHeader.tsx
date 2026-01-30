@@ -23,8 +23,14 @@ export function AppHeader() {
     location.pathname.startsWith("/export");
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    navigate("/");
+    // Make logout deterministic even if react-router navigation is interrupted.
+    // (Some embedded browsers / stale sessions can behave oddly.)
+    try {
+      await supabase.auth.signOut();
+    } finally {
+      // Use a hard redirect to ensure ProtectedRoute/session state cannot keep the user on app routes.
+      window.location.assign("/auth");
+    }
   };
 
   return (
