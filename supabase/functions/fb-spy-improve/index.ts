@@ -29,62 +29,69 @@ function normalizeUrl(raw: string) {
   return `https://${u}`;
 }
 
+function toJson(status: number, payload: Record<string, unknown>) {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { url } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const url = body?.url;
+    const rawOverride = body?.rawText;
     const postUrl = normalizeUrl(String(url ?? ""));
-    if (!postUrl) {
-      return new Response(JSON.stringify({ error: "url is required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+
+    const rawTextInput = typeof rawOverride === "string" ? rawOverride.trim() : "";
+
+    if (!rawTextInput && !postUrl) {
+      return toJson(400, { error: "url أو rawText مطلوب" });
     }
 
-    const firecrawlKey = Deno.env.get("FIRECRAWL_API_KEY");
-    if (!firecrawlKey) {
-      return new Response(JSON.stringify({ error: "Firecrawl is not configured" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+    let rawText = rawTextInput;
+
+    // If user provided raw text, skip scraping entirely.
+    if (!rawText) {
+      const firecrawlKey = Deno.env.get("FIRECRAWL_API_KEY");
+      if (!firecrawlKey) {
+        return toJson(500, { error: "أداة الجلب غير مُفعّلة" });
+      }
+
+      const scrapeResp = await fetch("https://api.firecrawl.dev/v1/scrape", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${firecrawlKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          url: postUrl,
+          formats: ["markdown"],
+          onlyMainContent: true,
+        }),
       });
+
+      const scrapeJson = await scrapeResp.json();
+      if (!scrapeResp.ok) {
+        console.error("firecrawl error", scrapeResp.status, scrapeJson);
+        const errMsg = scrapeJson?.error || "Failed to scrape";
+        // Make the client experience clearer when websites are blocklisted.
+        if (String(errMsg).toLowerCase().includes("blocklisted")) {
+          return toJson(403, { error: "المصدر يمنع الاستخراج من الرابط (محجوب). الصق النص يدويًا." });
+        }
+        return toJson(scrapeResp.status, { error: errMsg });
+      }
+
+      rawText = scrapeJson?.data?.markdown || scrapeJson?.markdown || "";
     }
-
-    const scrapeResp = await fetch("https://api.firecrawl.dev/v1/scrape", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${firecrawlKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        url: postUrl,
-        formats: ["markdown"],
-        onlyMainContent: true,
-      }),
-    });
-
-    const scrapeJson = await scrapeResp.json();
-    if (!scrapeResp.ok) {
-      console.error("firecrawl error", scrapeResp.status, scrapeJson);
-      return new Response(JSON.stringify({ error: scrapeJson?.error || "Failed to scrape" }), {
-        status: scrapeResp.status,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const rawText =
-      scrapeJson?.data?.markdown ||
-      scrapeJson?.markdown ||
-      "";
 
     const lovableKey = Deno.env.get("LOVABLE_API_KEY");
     if (!lovableKey) {
-      return new Response(JSON.stringify({ error: "LOVABLE_API_KEY not configured" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return toJson(500, { error: "LOVABLE_API_KEY not configured" });
     }
 
     const prompt = `
@@ -124,23 +131,15 @@ ${rawText.slice(0, 6000)}
     if (!aiResp.ok) {
       const t = await aiResp.text();
       console.error("ai gateway error", aiResp.status, t);
-      return new Response(JSON.stringify({ error: "AI error" }), {
-        status: aiResp.status,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return toJson(aiResp.status, { error: "AI error" });
     }
 
     const aiJson = await aiResp.json();
     const improved = aiJson?.choices?.[0]?.message?.content ?? "";
 
-    return new Response(JSON.stringify({ rawText, improved }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return toJson(200, { rawText, improved });
   } catch (e) {
     console.error("fb-spy-improve error", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return toJson(500, { error: e instanceof Error ? e.message : "Unknown error" });
   }
 });
