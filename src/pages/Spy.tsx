@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { sanitizeErrorMessage } from "@/lib/errors";
 import { supabase } from "@/integrations/supabase/client";
+import { track } from "@/lib/analytics";
 
 export default function Spy() {
   const { toast } = useToast();
@@ -28,6 +29,7 @@ export default function Spy() {
     setRaw("");
     setImproved("");
     try {
+      track("spy_run", { mode });
       const { data, error } = await supabase.functions.invoke("fb-spy-improve", {
         body: mode === "url" ? { url } : { rawText: pastedText },
       });
@@ -35,6 +37,7 @@ export default function Spy() {
       setRaw((data as any)?.rawText ?? "");
       setImproved((data as any)?.improved ?? "");
       toast({ title: "تم" });
+      track("spy_success", { mode });
     } catch (err) {
       if (mode === "url" && looksLikeBlockedScrape(err)) {
         setMode("paste");
@@ -43,8 +46,10 @@ export default function Spy() {
           description: "المصدر يمنع الاستخراج من الرابط. الصق نص البوست يدويًا وسنحسّنه فورًا.",
           variant: "destructive",
         });
+        track("spy_blocked_switched_to_paste", {});
         return;
       }
+      track("spy_failed", { mode });
       toast({ title: "خطأ", description: sanitizeErrorMessage(err), variant: "destructive" });
     } finally {
       setLoading(false);

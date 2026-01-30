@@ -9,6 +9,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { sanitizeErrorMessage } from "@/lib/errors";
 import { buildEasyOrdersRow, toEasyOrdersCsv } from "@/lib/easyOrders";
 import { createZipBundle, downloadBlob } from "@/lib/zipBundle";
+import { track } from "@/lib/analytics";
 
 type ProductRow = Database["public"]["Tables"]["extracted_products"]["Row"];
 
@@ -98,6 +99,7 @@ export default function Export() {
   const downloadCsv = () => {
     const blob = new Blob([easyOrdersCsv], { type: "text/csv;charset=utf-8" });
     downloadBlob(blob, "easy-orders.csv");
+    track("export_csv_downloaded", { has_selection: Boolean(selectedId && selectedId !== "none") });
   };
 
   const downloadZip = async () => {
@@ -112,6 +114,7 @@ export default function Export() {
       });
       downloadBlob(zipBlob, "sellfast-bundle.zip");
       toast({ title: "تم تنزيل الباندل" });
+      track("export_zip_downloaded", { images_count: images.length });
     } catch (err) {
       toast({ title: "خطأ", description: sanitizeErrorMessage(err), variant: "destructive" });
     }

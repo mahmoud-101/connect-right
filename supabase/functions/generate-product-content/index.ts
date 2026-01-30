@@ -150,6 +150,33 @@ function getHost(url: string): string {
   }
 }
 
+function looksLikeNotAProductPage(args: {
+  finalUrl: string;
+  title: string;
+  price: string;
+  specs: string;
+  imageCount: number;
+}): boolean {
+  const host = getHost(args.finalUrl);
+  const title = (args.title ?? "").trim().toLowerCase();
+  const specs = (args.specs ?? "").trim();
+  const price = (args.price ?? "").trim();
+
+  // Known non-product placeholders
+  if (host === "example.com" || host === "example.org" || host === "example.net") return true;
+  if (title === "example domain") return true;
+
+  // Very weak signals: no images + no price + tiny/empty description
+  const weakSignals = args.imageCount === 0 && !price && specs.length < 40;
+  if (weakSignals) return true;
+
+  // Generic landing pages often have a short title and no product signals.
+  const shortTitle = title.length > 0 && title.length < 8;
+  if (shortTitle && weakSignals) return true;
+
+  return false;
+}
+
 function looksLikeAuthOrLanding(html: string, url: string): boolean {
   const host = getHost(url);
   const lower = (html || "").toLowerCase();
@@ -500,6 +527,27 @@ Deno.serve(async (req) => {
           console.error("Firecrawl enrichment failed", e);
         }
       }
+    }
+
+    // If we still don't have real product signals, stop early to avoid generating misleading content.
+    if (
+      looksLikeNotAProductPage({
+        finalUrl,
+        title: productTitle,
+        price: productPrice,
+        specs: productSpecs,
+        imageCount: imageUrls.length,
+      })
+    ) {
+      return new Response(
+        JSON.stringify({
+          error:
+            "الرابط ده مش ظاهر إنه صفحة منتج (مفيش سعر/صور/عنوان منتج واضح)، فمش هنولّد محتوى عشان مايبقاش مضلل.\n\nالحل: ابعت رابط صفحة المنتج الفعلية من المتجر (مش لينك عام/صفحة هبوط)، أو استخدم (إدخال يدوي) واكتب عنوان + مواصفات وارفع الصور.",
+          code: "NOT_PRODUCT_PAGE",
+          finalUrl,
+        }),
+        { status: 422, headers: { ...cors, "Content-Type": "application/json" } },
+      );
     }
 
     // 2) AI generation via Lovable AI Gateway

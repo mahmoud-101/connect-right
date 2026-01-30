@@ -70,6 +70,29 @@ const dict: Dictionary = {
   sortOldest: { ar: "الأقدم", en: "Oldest" },
   sortTitle: { ar: "حسب العنوان", en: "Title" },
   open: { ar: "فتح", en: "Open" },
+
+  // Help
+  helpTitle: { ar: "المساعدة والدعم", en: "Help & Support" },
+  helpSub: {
+    ar: "إرشادات سريعة لتشغيل الأدوات بشكل صحيح + تواصل معنا على واتساب.",
+    en: "Quick guidance to use the tools correctly + contact us on WhatsApp.",
+  },
+  helpHowItWorksTitle: { ar: "الفرق بين الاستخراج التلقائي واليدوي", en: "Auto vs manual extraction" },
+  helpHowItWorksBody: {
+    ar: "لو الرابط صفحة منتج مفتوحة: استخدم الاستخراج التلقائي. لو الموقع حاجب/تسجيل دخول/كابتشا: استخدم (إدخال يدوي) واكتب عنوان + مواصفات وارفع الصور، وهنولّد محتوى بيع جاهز.",
+    en: "If the link is a public product page, use Auto extraction. If the site is blocked/login/captcha, switch to Manual entry, add title + specs + images, and we’ll generate sales-ready content.",
+  },
+  helpBlockedTitle: { ar: "ليه بعض الروابط بتفشل؟", en: "Why do some links fail?" },
+  helpBlockedBody: {
+    ar: "بعض المواقع (خصوصاً Amazon) بتمنع السيرفر من فتح الصفحة بسبب حماية/كوكيز/منطقة. في الحالة دي التطبيق هيحوّلك تلقائياً للوضع اليدوي عشان متضيعش وقتك.",
+    en: "Some sites (especially Amazon) block server access due to bot protection/cookies/region. In that case, the app will switch you to Manual mode so you don’t lose time.",
+  },
+  helpSupportTitle: { ar: "تواصل معنا", en: "Contact us" },
+  helpWhatsapp: { ar: "تواصل واتساب", en: "Chat on WhatsApp" },
+  helpWhatsappHint: {
+    ar: "اكتب المشكلة وارسلها—هنرد عليك بأسرع وقت.",
+    en: "Describe your issue and send it—we’ll reply ASAP.",
+  },
 };
 
 type LanguageContextValue = {
