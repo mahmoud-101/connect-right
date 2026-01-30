@@ -53,6 +53,12 @@ Deno.serve(async (req) => {
   }
 
   try {
+    console.log("firecrawl-extract-product request", {
+      method: req.method,
+      hasAuth: Boolean(req.headers.get("Authorization")),
+      contentType: req.headers.get("content-type"),
+    });
+
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return toJson(401, { error: "Unauthorized" });
@@ -114,19 +120,52 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         url,
-        formats: [
-          { type: "json", schema, prompt },
-          "screenshot",
-        ],
+        formats: ["json", "screenshot"],
+        jsonOptions: {
+          schema,
+          prompt,
+        },
         onlyMainContent: true,
         waitFor: 5000,
+        timeout: 30000,
+        blockAds: true,
+        storeInCache: true,
+        // For tougher sites (ex: Amazon), Firecrawl may still be blocked; this helps a bit.
+        proxy: "basic",
       }),
     });
 
     const fcJson = await fcResp.json().catch(() => ({}));
     if (!fcResp.ok) {
       const errMsg = fcJson?.error || "Failed to scrape";
-      return toJson(fcResp.status, { error: errMsg });
+
+      console.error("firecrawl scrape error", {
+        status: fcResp.status,
+        errMsg,
+        body: fcJson,
+        url,
+      });
+
+      const lower = String(errMsg).toLowerCase();
+      const looksAmazonBlocked =
+        url.includes("amazon.") && (lower.includes("captcha") || lower.includes("blocked") || lower.includes("signin") || lower.includes("login"));
+      const looksGenericBlocked = lower.includes("blocklisted") || lower.includes("blocked") || lower.includes("forbidden") || lower.includes("403");
+
+      if (looksAmazonBlocked || looksGenericBlocked) {
+        return toJson(422, {
+          error:
+            "الموقع حجب الاستخراج (حماية/تسجيل دخول/كابتشا). الحل السريع: استخدم الإدخال اليدوي أو جرّب رابط أنظف بدون تتبّع.",
+          code: looksAmazonBlocked ? "AMAZON_BLOCKED" : "SOURCE_BLOCKED",
+        });
+      }
+
+      // Include minimal debug info (safe) to diagnose Firecrawl payload mismatches.
+      return toJson(fcResp.status, {
+        error: errMsg,
+        status: fcResp.status,
+        hint: "Firecrawl rejected the request payload. Check 'details' for which field is invalid.",
+        details: fcJson,
+      });
     }
 
     const dataRoot = fcJson?.data ?? fcJson;
