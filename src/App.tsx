@@ -18,6 +18,7 @@ import ImageOptimizer from "./pages/ImageOptimizer";
 import Bulk from "./pages/Bulk";
 import Export from "./pages/Export";
 import Spy from "./pages/Spy";
+import Help from "./pages/Help";
 
 const queryClient = new QueryClient();
 
@@ -31,6 +32,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
+            <Route path="/help" element={<Help />} />
 
             <Route
               element={

@@ -325,6 +325,13 @@ export default function Extract() {
         setInputMode("manual");
       }
 
+      // Track failures (best-effort)
+      track("extract_failed", {
+        code: bodyCode ?? "unknown",
+        tone,
+        mode: "url",
+      });
+
       const msg = typeof bodyMsg === "string" && bodyMsg.trim() ? bodyMsg : sanitizeErrorMessage(err);
       setLastUrlError({
         code: typeof bodyCode === "string" ? bodyCode : undefined,
@@ -446,6 +453,7 @@ export default function Extract() {
     } catch (err) {
       if (isAbortError(err)) return;
       const bodyMsg = parseFunctionError(err).message;
+      track("extract_failed", { code: "manual_failed", tone, mode: "manual" });
       toast({
          title: "خطأ",
         description: typeof bodyMsg === "string" && bodyMsg.trim() ? bodyMsg : sanitizeErrorMessage(err),
