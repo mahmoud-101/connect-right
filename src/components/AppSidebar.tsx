@@ -1,5 +1,4 @@
-import { useLocation } from "react-router-dom";
-import { NavLink } from "@/components/NavLink";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   Sidebar,
   SidebarContent,
@@ -25,6 +24,7 @@ const items = [
 
 export function AppSidebar() {
   const { state } = useSidebar();
+  const navigate = useNavigate();
   const location = useLocation();
   const currentPath = location.pathname;
   const collapsed = state === "collapsed";
@@ -39,16 +39,14 @@ export function AppSidebar() {
             <SidebarMenu>
               {items.map((item) => (
                 <SidebarMenuItem key={item.url}>
-                  <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
-                    <NavLink
-                      to={item.url}
-                      end
-                      className="rounded-md"
-                      activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                    >
-                      <item.icon />
-                      {!collapsed && <span>{item.title}</span>}
-                    </NavLink>
+                  <SidebarMenuButton
+                    isActive={isActive(item.url)}
+                    tooltip={item.title}
+                    onClick={() => navigate(item.url)}
+                    className="rounded-md"
+                  >
+                    <item.icon />
+                    {!collapsed && <span>{item.title}</span>}
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
