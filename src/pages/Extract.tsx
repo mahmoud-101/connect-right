@@ -17,6 +17,7 @@ import { track } from "@/lib/analytics";
 import { POST_TEMPLATES, applyTemplate } from "@/lib/templates";
 import { MessageCircle } from "lucide-react";
 import { ImportProductFromUrlDialog } from "@/components/ImportProductFromUrlDialog";
+import { ExportResultDialog } from "@/components/ExportResultDialog";
 import {
   Select,
   SelectContent,
@@ -141,7 +142,7 @@ export default function Extract() {
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
 
-  const [inputMode, setInputMode] = useState<"url" | "manual">("url");
+  const [inputMode, setInputMode] = useState<"url" | "manual">("manual");
   const [manualTitle, setManualTitle] = useState("");
   const [manualPrice, setManualPrice] = useState("");
   const [manualSpecs, setManualSpecs] = useState("");
@@ -777,14 +778,14 @@ export default function Extract() {
                 variant={inputMode === "url" ? "default" : "secondary"}
                 onClick={() => setInputMode("url")}
               >
-                استخراج من رابط
+                استيراد بيانات المنتج (اختياري)
               </Button>
               <Button
                 type="button"
                 variant={inputMode === "manual" ? "default" : "secondary"}
                 onClick={() => setInputMode("manual")}
               >
-                إدخال يدوي
+                إدخال يدوي (الأساسي)
               </Button>
             </div>
 
@@ -928,6 +929,7 @@ export default function Extract() {
               <Button variant="secondary" onClick={exportPdf}>
                 {t("exportPdf")}
               </Button>
+              <ExportResultDialog productId={rowId} disabled={!rowId} />
               <Button variant="secondary" onClick={generateImagesOnly} disabled={loading || !rowId}>
                 {t("generateImagesOnly")}
               </Button>
