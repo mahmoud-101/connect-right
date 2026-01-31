@@ -100,8 +100,8 @@ export default function Spy() {
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-8">
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold">Competitor Spy (Public Post)</h1>
-        <p className="mt-1 text-sm text-muted-foreground">حط رابط بوست عام (Public) وسنستخرج النص ونحسّنه.</p>
+        <h1 className="text-2xl font-semibold">Spy</h1>
+        <p className="mt-1 text-sm text-muted-foreground">حط رابط بوست عام أو الصق النص — وهنطلع لك نسخة أقوى جاهزة للتعديل.</p>
       </div>
 
       <Card className="p-6">
@@ -137,17 +137,17 @@ export default function Spy() {
           )}
           <div className="flex gap-2">
             <Button onClick={run} disabled={loading}>
-              {loading ? "جارٍ…" : "Analyze & Improve"}
+              {loading ? "جارٍ…" : "تحسين البوست"}
             </Button>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
             <Card className="p-4">
-              <div className="text-sm font-semibold">Extracted Text</div>
+              <div className="text-sm font-semibold">النص الأصلي</div>
               <Textarea value={raw} readOnly className="mt-2 min-h-[240px]" />
             </Card>
             <Card className="p-4">
-              <div className="text-sm font-semibold">AI Improved (Egypt FB)</div>
+              <div className="text-sm font-semibold">مسودة — جاهزة للتعديل</div>
               <Textarea value={improved} readOnly className="mt-2 min-h-[240px]" />
             </Card>
           </div>

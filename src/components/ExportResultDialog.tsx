@@ -152,11 +152,11 @@ export function ExportResultDialog({ productId, disabled }: { productId: string 
 
           <div className="grid gap-3 md:grid-cols-2">
             <div className="grid gap-2">
-              <div className="text-sm font-medium">Category</div>
+              <div className="text-sm font-medium">التصنيف (اختياري)</div>
               <Input value={category} onChange={(e) => setCategory(e.target.value)} />
             </div>
             <div className="grid gap-2">
-              <div className="text-sm font-medium">Stock</div>
+              <div className="text-sm font-medium">المخزون (اختياري)</div>
               <Input value={stock} onChange={(e) => setStock(e.target.value)} />
             </div>
           </div>
@@ -173,11 +173,11 @@ export function ExportResultDialog({ productId, disabled }: { productId: string 
           {item ? (
             <div className="grid gap-4 md:grid-cols-2">
               <Card className="p-4">
-                <div className="text-sm font-semibold">CSV Preview</div>
+                <div className="text-sm font-semibold">معاينة CSV</div>
                 <Textarea value={easyOrdersCsv} readOnly className="mt-2 min-h-[180px]" />
               </Card>
               <Card className="p-4">
-                <div className="text-sm font-semibold">Copy + Hashtags</div>
+                <div className="text-sm font-semibold">النص + الهاشتاجات</div>
                 <Textarea value={bundleText} readOnly className="mt-2 min-h-[180px]" />
               </Card>
             </div>

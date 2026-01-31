@@ -6,18 +6,18 @@ type Dictionary = Record<string, { ar: string; en: string }>;
 
 const dict: Dictionary = {
   tryFree: { ar: "جرّب مجاناً", en: "Try Free" },
-  heroTitle: { ar: "من أي لينك لبوست عربي جاهز في 30 ثانية ⚡", en: "From any link to an Arabic post in 30 seconds ⚡" },
+  heroTitle: { ar: "اكتب إعلان أفلييت لفيسبوك خلال دقيقة", en: "Write a Facebook affiliate ad in 1 minute" },
   heroSub: {
-    ar: "أداة AI للبائعين على فيسبوك وإنستجرام — استخرج أي منتج واحصل على محتوى عربي جاهز للنشر فوراً.",
-    en: "AI tool for social sellers — extract any product and get Arabic content ready to post instantly.",
+    ar: "لينك المنتج اختياري — هنقترح عليك أفضل طريقة للتقديم",
+    en: "Product link is optional — we’ll suggest the best angle for you.",
   },
   ctaPrimary: { ar: "ابدأ الآن", en: "Get started" },
   ctaSeeApp: { ar: "ادخل للتجربة", en: "Open app" },
 
   stepPaste: { ar: "الصق الرابط", en: "Paste the URL" },
   stepPasteDesc: { ar: "انسخ رابط أي منتج من أي موقع.", en: "Paste any product link from any website." },
-  stepExtract: { ar: "اضغط استخراج", en: "Click extract" },
-  stepExtractDesc: { ar: "سنستخرج البيانات ونولد المحتوى.", en: "We extract data and generate content." },
+  stepExtract: { ar: "ابني مسودة المنتج", en: "Build the product draft" },
+  stepExtractDesc: { ar: "هنرتّب البيانات ونجهز مسودة قابلة للتعديل.", en: "We’ll structure the data into an editable draft." },
   stepPost: { ar: "انسخ وانشر", en: "Copy & post" },
   stepPostDesc: { ar: "محتوى جاهز للنشر على فيسبوك/إنستجرام.", en: "Ready to post on Facebook/Instagram." },
 
