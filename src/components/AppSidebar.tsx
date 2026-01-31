@@ -13,16 +13,16 @@ import {
 import { Wand2, Image as ImageIcon, Sparkles, Eye, Upload, Settings as SettingsIcon } from "lucide-react";
 
 const contentStudioItems = [
-  { title: "Extract", url: "/extract", icon: Wand2 },
+  { title: "كتابة إعلان", url: "/extract", icon: Wand2 },
   { title: "Spy", url: "/spy", icon: Eye },
-  { title: "Templates", url: "/templates", icon: Sparkles },
-  { title: "Image Optimizer", url: "/optimizer", icon: ImageIcon },
+  { title: "قوالب جاهزة", url: "/templates", icon: Sparkles },
+  { title: "تحسين الصور", url: "/optimizer", icon: ImageIcon },
   { title: "Bulk", url: "/bulk", icon: Upload },
   // NOTE: Export is now intended to be used as an inline dialog from results.
   // Keep the /export route for backward compatibility, but don't surface it in nav.
 ];
 
-const settingsItems = [{ title: "Settings", url: "/settings", icon: SettingsIcon }];
+const settingsItems = [{ title: "الإعدادات", url: "/settings", icon: SettingsIcon }];
 
 export function AppSidebar() {
   const { state } = useSidebar();
