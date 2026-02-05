@@ -1,64 +1,64 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { Suspense, lazy } from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Index from "./pages/Index";
-import NotFound from "./pages/NotFound";
-import Auth from "./pages/Auth";
-import Extract from "./pages/Extract";
-import Library from "./pages/Library";
-import Settings from "./pages/Settings";
-import LibraryItem from "./pages/LibraryItem";
-import ContentStudio from "./pages/ContentStudio";
+import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { LanguageProvider } from "./contexts/language";
-import { ProtectedRoute } from "./components/ProtectedRoute";
-import { AppLayout } from "./components/AppLayout";
-import ImageOptimizer from "./pages/ImageOptimizer";
-import Bulk from "./pages/Bulk";
-import Export from "./pages/Export";
-import Spy from "./pages/Spy";
-import Help from "./pages/Help";
+import ProtectedRoute from "./components/ProtectedRoute";
+import AppLayout from "./components/AppLayout";
 
-const queryClient = new QueryClient();
+// Lazy loading components لتقليل حجم التحميل الأولي
+const Index = lazy(() => import("./pages/Index"));
+const Auth = lazy(() => import("./pages/Auth"));
+const Spy = lazy(() => import("./pages/Spy"));
+const Bulk = lazy(() => import("./pages/Bulk"));
+const Extract = lazy(() => import("./pages/Extract"));
+const ContentStudio = lazy(() => import("./pages/ContentStudio"));
+const Library = lazy(() => import("./pages/Library"));
+const LibraryItem = lazy(() => import("./pages/LibraryItem"));
+const Export = lazy(() => import("./pages/Export"));
+const ImageOptimizer = lazy(() => import("./pages/ImageOptimizer"));
+const Settings = lazy(() => import("./pages/Settings"));
+const Help = lazy(() => import("./pages/Help"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <LanguageProvider>
-        <Toaster />
-        <Sonner />
+    <LanguageProvider>
+      <TooltipProvider>
+        <Toaster position="top-center" richColors />
         <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/help" element={<Help />} />
-
-            <Route
-              element={
-                <ProtectedRoute>
-                  <AppLayout />
-                </ProtectedRoute>
-              }
-            >
-              <Route path="/extract" element={<Extract />} />
-              <Route path="/optimizer" element={<ImageOptimizer />} />
-              <Route path="/templates" element={<ContentStudio />} />
-              <Route path="/spy" element={<Spy />} />
-              <Route path="/bulk" element={<Bulk />} />
-              <Route path="/export" element={<Export />} />
-
-              <Route path="/library" element={<Library />} />
-              <Route path="/library/:id" element={<LibraryItem />} />
-              <Route path="/settings" element={<Settings />} />
-            </Route>
-
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <Suspense fallback={<div className="h-screen w-full flex items-center justify-center">جاري التحميل...</div>}>
+            <Routes>
+              <Route path="/auth" element={<Auth />} />
+              <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+                <Route path="/" element={<Index />} />
+                <Route path="/spy" element={<Spy />} />
+                <Route path="/bulk" element={<Bulk />} />
+                <Route path="/extract" element={<Extract />} />
+                <Route path="/studio" element={<ContentStudio />} />
+                <Route path="/library" element={<Library />} />
+                <Route path="/library/:id" element={<LibraryItem />} />
+                <Route path="/export" element={<Export />} />
+                <Route path="/optimizer" element={<ImageOptimizer />} />
+                <Route path="/settings" element={<Settings />} />
+                <Route path="/help" element={<Help />} />
+              </Route>
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Suspense>
         </BrowserRouter>
-      </LanguageProvider>
-    </TooltipProvider>
+      </TooltipProvider>
+    </LanguageProvider>
   </QueryClientProvider>
 );
 
