@@ -1,32 +1,35 @@
-import { Link, Outlet } from "react-router-dom";
-import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/AppSidebar";
-import { AppHeader } from "@/components/AppHeader";
+import { Outlet } from "react-router-dom";
+import AppSidebar from "./AppSidebar";
+import AppHeader from "./AppHeader";
+import { SidebarProvider } from "./ui/sidebar";
 import { useLanguage } from "@/contexts/language";
+import { useEffect } from "react";
 
-export function AppLayout() {
-  const { t } = useLanguage();
+const AppLayout = () => {
+  const { language } = useLanguage();
+  const isRtl = language === 'ar';
+
+  // تحديث اتجاه الصفحة في الـ DOM
+  useEffect(() => {
+    document.documentElement.dir = isRtl ? 'rtl' : 'ltr';
+    document.documentElement.lang = language;
+  }, [isRtl, language]);
+
   return (
     <SidebarProvider>
-      <div className="min-h-svh w-full">
+      <div className="flex min-h-screen w-full bg-background" dir={isRtl ? 'rtl' : 'ltr'}>
         <AppSidebar />
-        <SidebarInset>
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           <AppHeader />
-          <Outlet />
-
-          <footer className="border-t bg-background">
-            <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-4 text-xs text-muted-foreground">
-              <div className="flex flex-wrap items-center gap-3">
-                <span>Ready for Easy Orders ✓ FB ✓ WhatsApp</span>
-                <Link to="/help" className="underline underline-offset-4">
-                  {t("helpTitle")}
-                </Link>
-              </div>
-              <div>SellFast</div>
+          <main className="flex-1 overflow-y-auto p-4 md:p-6">
+            <div className="max-w-7xl mx-auto w-full">
+              <Outlet />
             </div>
-          </footer>
-        </SidebarInset>
+          </main>
+        </div>
       </div>
     </SidebarProvider>
   );
-}
+};
+
+export default AppLayout;
